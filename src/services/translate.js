@@ -7,7 +7,12 @@ function clampText(s) {
 }
 
 function directionLabel(targetLang) {
-  return targetLang === "en" ? "ID → EN" : "EN → ID";
+  if (targetLang === "en") return "→ EN";
+  if (targetLang === "id") return "→ ID";
+  if (targetLang === "es") return "→ ES";
+  if (targetLang === "fr") return "→ FR";
+  if (targetLang === "pt") return "→ PT";
+  return "";
 }
 
 export async function translateText({ botProfile, text, directionMode }) {
@@ -16,22 +21,25 @@ export async function translateText({ botProfile, text, directionMode }) {
   const targetHint =
     directionMode === "toen" ? "en" :
     directionMode === "toid" ? "id" :
+    directionMode === "tosp" ? "es" :
+    directionMode === "tofr" ? "fr" :
+    directionMode === "topt" ? "pt" :
     "auto";
 
   const system =
     String(botProfile || "") +
     "\n\n" +
-    "Task: Translate chat messages between Indonesian (id) and English (en)." +
+    "Task: Translate chat messages between Indonesian (id), English (en), Spanish (es), French (fr), and Portuguese (pt)." +
     "\n" +
     "Rules:" +
     "\n" +
-    "1) Detect whether the input text is Indonesian or English." +
+    "1) Detect input language." +
     "\n" +
-    "2) If target is auto: translate to the opposite language. If detection is uncertain, translate into English." +
+    "2) If target is auto: translate Indonesian ↔️ English. For Spanish/French/Portuguese or uncertain detection, translate into English." +
     "\n" +
-    "3) If target is forced (en or id), translate into that target language." +
+    "3) If target is forced (en/id/es/fr/pt), translate into that target language." +
     "\n" +
-    "4) Return ONLY the translated text. No labels, no quotes, no explanations.";
+    "4) Return ONLY translated text.";
 
   const user =
     "Target: " + targetHint + "\n" +
@@ -56,9 +64,11 @@ export async function translateText({ botProfile, text, directionMode }) {
   let label = "";
   if (directionMode === "toen") label = directionLabel("en");
   else if (directionMode === "toid") label = directionLabel("id");
+  else if (directionMode === "tosp") label = directionLabel("es");
+  else if (directionMode === "tofr") label = directionLabel("fr");
+  else if (directionMode === "topt") label = directionLabel("pt");
   else {
-    // For auto mode, infer label heuristically to match the prompt's intent.
-    // If output contains many Indonesian stop words, assume EN->ID; else ID->EN.
+    // Preserve existing ID/EN auto heuristic behavior.
     const lower = out.toLowerCase();
     const idHints = [" yang ", " tidak ", " saya ", " kamu ", " ini ", " itu ", " dan ", " di ", " ke "];
     const idScore = idHints.reduce((n, w) => n + (lower.includes(w) ? 1 : 0), 0);

@@ -10,11 +10,14 @@ export default function register(bot) {
       "/auto_off - Disable auto-translate for this chat\n" +
       "/toen - Force translating into English\n" +
       "/toid - Force translating into Indonesian\n" +
+      "/tosp - Force translating into Spanish\n" +
+      "/tofr - Force translating into French\n" +
+      "/topt - Force translating into Portuguese\n" +
       "/mode - Show current settings\n\n" +
       "Notes / limitations:\n" +
       "1) Only text messages are translated.\n" +
       "2) In groups, I respond only if you reply to me or mention me (to reduce noise).\n" +
-      "3) If language detection is uncertain, I default to translating into English.";
+      "3) Auto mode: Indonesian ↔️ English. Other languages default to English.";
 
     await ctx.reply(txt);
   });

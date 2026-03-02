@@ -1,7 +1,10 @@
 This is a Telegram translation bot built with grammY (Node.js ES modules).
 
-It automatically translates between Indonesian (id) and English (en).
-If you send Indonesian, it replies in English. If you send English, it replies in Indonesian.
+It automatically translates between Indonesian (id) and English (en), with optional forced targets for Spanish (es), French (fr), and Portuguese (pt).
+
+Auto mode behavior
+1) Indonesian ↔ English (automatic)
+2) If Spanish/French/Portuguese is detected (or detection is uncertain), the bot translates into English.
 
 In group chats, the bot replies only when:
 1) You reply to a bot message, or
@@ -45,6 +48,15 @@ Force translations to English for this chat.
 
 /toid
 Force translations to Indonesian for this chat.
+
+/tosp
+Force translations to Spanish for this chat.
+
+/tofr
+Force translations to French for this chat.
+
+/topt
+Force translations to Portuguese for this chat.
 
 /mode
 Show current chat settings.

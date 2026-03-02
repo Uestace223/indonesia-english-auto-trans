@@ -15,7 +15,7 @@ export function defaultChatSettings(chatId) {
   return {
     chatId: String(chatId),
     autoTranslate: true,
-    directionMode: "auto" // "auto" | "toen" | "toid"
+    directionMode: "auto" // "auto" | "toen" | "toid" | "tosp" | "tofr" | "topt"
   };
 }
 
@@ -43,7 +43,7 @@ export async function getChatSettings(chatId) {
       settings: {
         chatId: id,
         autoTranslate: row.autoTranslate !== false,
-        directionMode: row.directionMode === "toen" || row.directionMode === "toid" ? row.directionMode : "auto"
+        directionMode: ["toen", "toid", "tosp", "tofr", "topt"].includes(row.directionMode) ? row.directionMode : "auto"
       },
       persisted: true
     };

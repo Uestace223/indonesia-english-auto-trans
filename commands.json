@@ -24,7 +24,19 @@
     "file": "src/commands/toen.js"
   },
   {
+    "name": "tofr",
+    "file": "src/commands/tofr.js"
+  },
+  {
     "name": "toid",
     "file": "src/commands/toid.js"
+  },
+  {
+    "name": "topt",
+    "file": "src/commands/topt.js"
+  },
+  {
+    "name": "tosp",
+    "file": "src/commands/tosp.js"
   }
 ]

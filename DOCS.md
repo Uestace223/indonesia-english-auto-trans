@@ -1,12 +1,12 @@
 What this bot does
-This Telegram bot automatically translates messages between Indonesian (id) and English (en).
+This Telegram bot automatically translates messages between Indonesian (id) and English (en), and can also translate into Spanish (es), French (fr), and Portuguese (pt) when forced.
 
 Default behavior
 In a new chat, auto-translate is ON and direction is AUTO.
 That means:
 1) Indonesian input is translated to English.
 2) English input is translated to Indonesian.
-3) If detection is uncertain, it defaults to translating into English.
+3) If Spanish/French/Portuguese is detected (or detection is uncertain), it defaults to translating into English.
 
 Private vs group chats
 1) Private chats: the bot replies to every non-command text message (unless auto-translate is turned off).
@@ -36,6 +36,18 @@ Usage: /toen
 /toid
 What it does: Forces translation target to Indonesian for the current chat.
 Usage: /toid
+
+/tosp
+What it does: Forces translation target to Spanish (es) for the current chat.
+Usage: /tosp
+
+/tofr
+What it does: Forces translation target to French (fr) for the current chat.
+Usage: /tofr
+
+/topt
+What it does: Forces translation target to Portuguese (pt) for the current chat.
+Usage: /topt
 
 /mode
 What it does: Shows current settings for the chat.
