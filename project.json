@@ -1,0 +1,1038 @@
+{
+  "projectId": "45e0bc51-dba5-4355-9455-014bf5adcab4",
+  "commands": [
+    {
+      "command": "/auto_off",
+      "description": "Disables auto-translate for the current chat.",
+      "usage": "/auto_off",
+      "examples": [
+        "User: /auto_off → Bot: Auto-translate is OFF for this chat."
+      ],
+      "example": "User: /auto_off → Bot: Auto-translate is OFF for this chat.",
+      "notes": "Useful in noisy group chats."
+    },
+    {
+      "command": "/auto_on",
+      "description": "Enables auto-translate for the current chat.",
+      "usage": "/auto_on",
+      "examples": [
+        "User: /auto_on → Bot: Auto-translate is ON for this chat."
+      ],
+      "example": "User: /auto_on → Bot: Auto-translate is ON for this chat.",
+      "notes": "Requires MONGODB_URI to persist across restarts; otherwise it may be temporary."
+    },
+    {
+      "command": "/help",
+      "description": "Shows detailed usage, commands list, and limitations.",
+      "usage": "/help",
+      "examples": [
+        "User: /help → Bot: shows all commands and group behavior rules"
+      ],
+      "example": "User: /help → Bot: shows all commands and group behavior rules",
+      "notes": "In groups, the bot responds only when mentioned or replied-to."
+    },
+    {
+      "command": "/mode",
+      "description": "Shows current chat settings (auto on/off, direction mode).",
+      "usage": "/mode",
+      "examples": [
+        "User: /mode → Bot: Auto-translate: ON, Direction: auto"
+      ],
+      "example": "User: /mode → Bot: Auto-translate: ON, Direction: auto",
+      "notes": "If MONGODB_URI is missing, the bot will say settings are not persisted."
+    },
+    {
+      "command": "/start",
+      "description": "Shows a welcome message, explains auto-translation, and gives quick examples.",
+      "usage": "/start",
+      "examples": [
+        "User: /start → Bot: explains how to send text and get translations"
+      ],
+      "example": "User: /start → Bot: explains how to send text and get translations",
+      "notes": "Auto-translate defaults to ON for new chats."
+    },
+    {
+      "command": "/toen",
+      "description": "Forces translation target to English for the current chat.",
+      "usage": "/toen",
+      "examples": [
+        "User: /toen → Bot: Direction set: always translate into English."
+      ],
+      "example": "User: /toen → Bot: Direction set: always translate into English.",
+      "notes": "Overrides language detection until changed."
+    },
+    {
+      "command": "/toid",
+      "description": "Forces translation target to Indonesian for the current chat.",
+      "usage": "/toid",
+      "examples": [
+        "User: /toid → Bot: Direction set: always translate into Indonesian."
+      ],
+      "example": "User: /toid → Bot: Direction set: always translate into Indonesian.",
+      "notes": "Overrides language detection until changed."
+    }
+  ],
+  "aiMessages": [
+    {
+      "role": "user",
+      "content": "build a simple translator bot for indonesia and english ,whenever the bot got messages it will automatically translate in reverse of the input"
+    },
+    {
+      "role": "assistant",
+      "content": "Created a new Telegram-only grammY project for auto translating between Indonesian and English. Implemented /start, /help, /auto_on, /auto_off, /toen, /toid, /mode, group mention/reply rules, per-user soft rate limiting, MongoDB-backed per-chat settings with safe upserts, and CookMyBots AI Gateway translation via src/lib/ai.js + src/services/translate.js. Added DOCS.md and updated .env.sample.\n\nFiles touched (24): .env.sample, DOCS.md, README.md, package.json, project.json, src/bot.js…\nValidation: ✅ project passes syntax/basic checks after this edit."
+    }
+  ],
+  "createdBy": "69a4d8bfea88ed8e0547e919",
+  "source": "ai-cold-start",
+  "description": "",
+  "platform": "telegram",
+  "planMarkdown": "Bot: Indonesia–English Auto-Translate Telegram Bot (grammY, Node.js ESM)\n\nSummary:\nA production-ready Telegram bot that automatically translates every incoming user message between Indonesian and English, reversing the translation direction based on detected input language. The bot works in private chats and can optionally support group chats with configurable behavior.\n\nThe plan focuses on a single-process Node.js service using grammY, MongoDB for persistence, and a modular architecture that supports rate limiting, abuse prevention, observability, and safe fallbacks when language detection is uncertain. The bot is designed to be simple for users (send text, get translation) while still being reliable and maintainable in production.\n\nProduct goals:\nPrimary goal: Provide instant bidirectional translation between Indonesian and English. If a user sends Indonesian, the bot replies in English; if a user sends English, the bot replies in Indonesian.\n\nUser experience goals:\n1) Zero-configuration default: Users can start translating immediately after /start.\n2) Predictable replies: The bot responds to every supported message with a single translated response.\n3) Fast and reliable: Low latency, with sensible fallbacks if detection or translation fails.\n4) Clear behavior in edge cases: If language detection is ambiguous or text contains mixed languages, the bot explains what it did and offers a way to override.\n\nScope decisions:\n1) Translate text content. Optionally include captions on photos/documents if present.\n2) Do not attempt full OCR or speech-to-text as a baseline requirement.\n3) Default translation direction is automatic, but users can lock direction (ID->EN or EN->ID) per chat.\n\nSuccess criteria:\n1) High accuracy for typical conversational text.\n2) Minimal operational burden: stable single service, straightforward monitoring, and controlled costs.\n3) Safe handling of spam and large messages while staying within Telegram limits.\n\nHigh-level architecture:\nSingle-process Node.js service (ESM) using grammY. The bot receives updates via either webhook or long polling. For production readiness, webhook is preferred if the environment supports inbound HTTP, otherwise long polling remains acceptable with careful error handling.\n\nCore modules (separation of concerns):\n1) Update handling layer: grammY bot instance, middleware chain, command router, message handlers.\n2) Session and settings module: per-chat settings (auto vs locked direction, group behavior, verbosity), with MongoDB persistence.\n3) Language detection module: lightweight detection tuned for Indonesian vs English, using a deterministic heuristic first and an external detector second (optional) to reduce cost/latency. Must return confidence score and a reason.\n4) Translation provider module: abstraction over a translation API/service with retries, timeouts, circuit breaker behavior, and usage accounting.\n5) Policy and safety module: rate limiting per user/chat, message size limits, content filtering for unsupported inputs, and group privacy controls.\n6) Observability module: structured logging, metrics counters (translations, errors, latency), and correlation IDs per update.\n\nRequest lifecycle:\n1) Receive update.\n2) Identify chat/user, load settings and minimal user profile.\n3) If command: execute command.\n4) If text/caption: run policy checks, detect language, decide direction, translate, respond.\n5) Persist audit record (optional) and update usage counters.\n\nError handling principles:\n1) Fail fast for unsupported message types with a short guidance reply.\n2) For transient translation failures: retry once with backoff; if still failing, respond with a human-readable error.\n3) For language detection ambiguity: ask the user to choose direction or provide a one-tap setting command.\n\nGroup chat behavior (recommended defaults):\n1) Only translate when the bot is directly replied to, or when a message starts with a trigger (for example, “tr:” or “translate ”). This prevents spam in groups.\n2) Allow admins to enable always-on translation per group via a setting command.\n\nDeployment shape:\n1) One Node.js server process.\n2) MongoDB for persistence.\n3) Optional object storage or simple filesystem storage only if you later add features like saving translation history exports or logs; not required for baseline translator.\n\nData model:\nMongoDB collections (minimal, production-friendly):\n\n1) chats\nFields:\n1) chatId (number/string)\n2) type (private/group/supergroup)\n3) createdAt, updatedAt\n4) settings:\n   1) mode: auto | locked\n   2) lockedDirection: idtoen | entoid (only if mode=locked)\n   3) groupTrigger: replyonly | prefixonly | always\n   4) showDetectedLanguage: boolean\n   5) showConfidenceWarnings: boolean\n   6) maxCharsPerMessage: number\n\n2) users\nFields:\n1) userId\n2) firstSeenAt, lastSeenAt\n3) preferredMode (optional override for private chats)\n4) usage:\n   1) dayKey (YYYY-MM-DD)\n   2) translatedCharsToday\n   3) requestsToday\n\n3) translationlogs (optional, can be disabled for privacy)\nPurpose: debugging and quality improvements, not required for core functionality.\nFields:\n1) timestamp\n2) chatId, userId\n3) inputLength\n4) detectedSourceLang (id/en/unknown)\n5) targetLang\n6) confidence\n7) providerLatencyMs\n8) status (success/error)\n9) errorCode (if any)\n\nPrivacy-first approach:\n1) Do not store raw message text by default.\n2) If logs are enabled, store only minimal metadata unless the user/admin explicitly opts in to diagnostics.\n3) Implement retention: auto-delete logs older than N days.\n\nIndexes:\n1) chats.chatId unique\n2) users.userId unique\n3) translationlogs.timestamp TTL index (if using retention)\n\nIn-memory maps:\n1) Short-lived caches for chat settings and user usage counters to reduce DB reads, with periodic sync to MongoDB.\n2) In-flight request map per chat/user to avoid overlapping translations when users spam messages quickly (optional).\n\nKey flows:\n1) Start and onboarding (/start)\n1) User sends /start.\n2) Bot replies with a brief description: send any text in Indonesian or English to translate.\n3) Bot shows current mode (auto) and quick commands to lock direction.\n4) Bot initializes user and chat records in MongoDB.\n\n2) Auto translation flow (private chat)\n1) User sends a text message.\n2) Policy checks: length, rate limits.\n3) Detect language: classify as Indonesian, English, or unknown with confidence.\n4) Decide target language:\n   1) If detected Indonesian: target English.\n   2) If detected English: target Indonesian.\n   3) If unknown or low confidence: either ask user to choose, or default to the last successful direction in this chat with a warning.\n5) Translate via provider module with timeout and retry.\n6) Reply with translated text.\n7) Optionally append a small note when detection was uncertain (configurable).\n\n3) Locked direction flow\n1) User runs /mode locked or /id2en or /en2id.\n2) Bot updates chat settings.\n3) Subsequent messages translate according to locked direction without detection.\n4) /mode auto returns to detection-based behavior.\n\n4) Group chat flow\nDefault behavior: translate only when explicitly invoked.\n1) If groupTrigger=replyonly:\n   1) Bot checks if the message is a reply to a bot message or mentions the bot.\n   2) If yes, translate; if no, ignore.\n2) If groupTrigger=prefixonly:\n   1) Bot checks for a prefix like “tr:” and strips it before translating.\n3) If groupTrigger=always:\n   1) Bot translates all messages (not recommended by default).\nAdmin commands configure this per group.\n\n5) Rate limiting and abuse prevention\n1) Per-user: cap requests per minute and characters per minute.\n2) Per-chat: cap overall throughput in groups.\n3) On limit hit: respond with a short message indicating cooldown.\n4) Track usage in MongoDB with daily counters.\n\n6) Edge cases\n1) Very short messages (for example, “ok”, “ya”): treat as ambiguous. Use chat history direction heuristic or ask user for direction.\n2) Mixed-language messages: choose dominant language by heuristic, or offer a quick override command.\n3) Non-text messages: if caption exists, translate caption; otherwise reply with guidance.\n4) Provider failure: return a friendly error, encourage retry, and do not spam retries.\n\n7) Observability and operations flow\n1) Each update gets a correlation ID.\n2) Log key events: detection result, chosen direction, provider latency, error codes.\n3) Periodic health checks: database connectivity, provider reachability.\n4) Alerting is out of scope for this plan, but logs and metrics must be sufficient to add it later without architectural changes.\n\nTech stack:\nRuntime and language:\n1) Node.js (ESM) single process.\n2) grammY for Telegram bot API integration.\n\nPersistence:\n1) MongoDB for chat/user settings, usage counters, and optional translation logs.\n2) Small in-memory caches/maps for hot settings and rate-limiting windows, with MongoDB as source of truth.\n\nExternal services:\n1) Translation API/provider accessed over HTTPS, wrapped behind an internal provider abstraction to allow swapping providers without touching bot logic.\n2) Optional lightweight language detection library locally; otherwise rely on provider detection if supported.\n\nStorage:\n1) No file storage required for baseline.\n2) If later needed (exports, diagnostics attachments), use object storage or simple filesystem storage.\n\nDeployment:\n1) A Node.js server in the cloud.\n2) Telegram token loaded from environment variable TELEGRAMBOTTOKEN.\n3) Configuration via environment variables (MongoDB connection string, provider keys, rate limit thresholds, logging level).\n\nOperational best practices:\n1) Graceful shutdown to finish in-flight translations and close MongoDB connections.\n2) Timeouts and retries for all outbound HTTP calls.\n3) Input validation and strict limits to prevent memory bloat and provider overuse.\n\nNon-functional requirements:\nReliability:\n1) Use timeouts for translation requests and limit concurrency.\n2) Implement a simple circuit breaker behavior: if provider failures spike, temporarily fail fast with a clear error to avoid cascading timeouts.\n3) Ensure idempotent handling where possible; avoid duplicate replies by tracking last processed update IDs in memory and/or MongoDB if webhook retries are frequent.\n\nPerformance:\n1) Keep detection lightweight; avoid calling the translation provider twice.\n2) Cache chat settings and user limits briefly in memory.\n3) Enforce message size limits and truncate safely with a note when needed.\n\nSecurity:\n1) Store secrets only in environment variables.\n2) Validate incoming updates (webhook secret path or similar technique) if using webhooks.\n3) Avoid logging message text by default.\n4) Enforce anti-spam limits and ignore obvious automation loops.\n\nPrivacy and compliance:\n1) Provide /privacy to explain what is stored.\n2) Offer /optoutlogs to disable optional diagnostics logging.\n3) Provide /delete to remove user data (user record and chat settings if private chat).\n\nMaintainability:\n1) Clear module boundaries: Telegram handling vs detection vs translation vs persistence.\n2) Provider abstraction for translation.\n3) Centralized configuration and consistent error taxonomy.\n\nTest strategy (high-level):\n1) Unit tests for detection and direction decision.\n2) Integration tests for translation provider wrapper with mocked HTTP.\n3) End-to-end tests using Telegram update fixtures to validate grammY middleware routing.\n\nBot commands:\n• /start — Introduces the bot and starts auto-translation in the current chat. (usage: /start) [core]\n• /help — Shows usage instructions, examples, and common troubleshooting. (usage: /help) [core]\n• /mode — Sets translation mode: auto (detect) or locked (fixed direction). (usage: /mode auto | /mode locked) [settings]\n• /id2en — Locks translation direction to Indonesian -> English for this chat. (usage: /id2en) [settings]\n• /en2id — Locks translation direction to English -> Indonesian for this chat. (usage: /en2id) [settings]\n• /auto — Shortcut to return to automatic language detection mode. (usage: /auto) [settings]\n• /settings — Displays current chat settings and how to change them. (usage: /settings) [settings]\n• /groupmode — Configures how the bot behaves in groups (admins only). (usage: /groupmode replyonly | /groupmode prefixonly | /groupmode always) [admin]\n• /privacy — Explains what data is stored and for how long. (usage: /privacy) [trust]\n• /delete — Deletes stored user data for the requesting user (and private chat settings). (usage: /delete) [trust]\n• /optoutlogs — Disables optional diagnostics logging for the current chat/user. (usage: /optoutlogs) [trust]\n• /status — Shows basic service status and current rate limit counters for the user (optional). (usage: /status) [ops]\n",
+  "planSections": {
+    "productGoals": "Primary goal: Provide instant bidirectional translation between Indonesian and English. If a user sends Indonesian, the bot replies in English; if a user sends English, the bot replies in Indonesian.\n\nUser experience goals:\n1) Zero-configuration default: Users can start translating immediately after /start.\n2) Predictable replies: The bot responds to every supported message with a single translated response.\n3) Fast and reliable: Low latency, with sensible fallbacks if detection or translation fails.\n4) Clear behavior in edge cases: If language detection is ambiguous or text contains mixed languages, the bot explains what it did and offers a way to override.\n\nScope decisions:\n1) Translate text content. Optionally include captions on photos/documents if present.\n2) Do not attempt full OCR or speech-to-text as a baseline requirement.\n3) Default translation direction is automatic, but users can lock direction (ID->EN or EN->ID) per chat.\n\nSuccess criteria:\n1) High accuracy for typical conversational text.\n2) Minimal operational burden: stable single service, straightforward monitoring, and controlled costs.\n3) Safe handling of spam and large messages while staying within Telegram limits.",
+    "highLevelArchitecture": "Single-process Node.js service (ESM) using grammY. The bot receives updates via either webhook or long polling. For production readiness, webhook is preferred if the environment supports inbound HTTP, otherwise long polling remains acceptable with careful error handling.\n\nCore modules (separation of concerns):\n1) Update handling layer: grammY bot instance, middleware chain, command router, message handlers.\n2) Session and settings module: per-chat settings (auto vs locked direction, group behavior, verbosity), with MongoDB persistence.\n3) Language detection module: lightweight detection tuned for Indonesian vs English, using a deterministic heuristic first and an external detector second (optional) to reduce cost/latency. Must return confidence score and a reason.\n4) Translation provider module: abstraction over a translation API/service with retries, timeouts, circuit breaker behavior, and usage accounting.\n5) Policy and safety module: rate limiting per user/chat, message size limits, content filtering for unsupported inputs, and group privacy controls.\n6) Observability module: structured logging, metrics counters (translations, errors, latency), and correlation IDs per update.\n\nRequest lifecycle:\n1) Receive update.\n2) Identify chat/user, load settings and minimal user profile.\n3) If command: execute command.\n4) If text/caption: run policy checks, detect language, decide direction, translate, respond.\n5) Persist audit record (optional) and update usage counters.\n\nError handling principles:\n1) Fail fast for unsupported message types with a short guidance reply.\n2) For transient translation failures: retry once with backoff; if still failing, respond with a human-readable error.\n3) For language detection ambiguity: ask the user to choose direction or provide a one-tap setting command.\n\nGroup chat behavior (recommended defaults):\n1) Only translate when the bot is directly replied to, or when a message starts with a trigger (for example, “tr:” or “translate ”). This prevents spam in groups.\n2) Allow admins to enable always-on translation per group via a setting command.\n\nDeployment shape:\n1) One Node.js server process.\n2) MongoDB for persistence.\n3) Optional object storage or simple filesystem storage only if you later add features like saving translation history exports or logs; not required for baseline translator.",
+    "dataModel": "MongoDB collections (minimal, production-friendly):\n\n1) chats\nFields:\n1) chatId (number/string)\n2) type (private/group/supergroup)\n3) createdAt, updatedAt\n4) settings:\n   1) mode: auto | locked\n   2) lockedDirection: idtoen | entoid (only if mode=locked)\n   3) groupTrigger: replyonly | prefixonly | always\n   4) showDetectedLanguage: boolean\n   5) showConfidenceWarnings: boolean\n   6) maxCharsPerMessage: number\n\n2) users\nFields:\n1) userId\n2) firstSeenAt, lastSeenAt\n3) preferredMode (optional override for private chats)\n4) usage:\n   1) dayKey (YYYY-MM-DD)\n   2) translatedCharsToday\n   3) requestsToday\n\n3) translationlogs (optional, can be disabled for privacy)\nPurpose: debugging and quality improvements, not required for core functionality.\nFields:\n1) timestamp\n2) chatId, userId\n3) inputLength\n4) detectedSourceLang (id/en/unknown)\n5) targetLang\n6) confidence\n7) providerLatencyMs\n8) status (success/error)\n9) errorCode (if any)\n\nPrivacy-first approach:\n1) Do not store raw message text by default.\n2) If logs are enabled, store only minimal metadata unless the user/admin explicitly opts in to diagnostics.\n3) Implement retention: auto-delete logs older than N days.\n\nIndexes:\n1) chats.chatId unique\n2) users.userId unique\n3) translationlogs.timestamp TTL index (if using retention)\n\nIn-memory maps:\n1) Short-lived caches for chat settings and user usage counters to reduce DB reads, with periodic sync to MongoDB.\n2) In-flight request map per chat/user to avoid overlapping translations when users spam messages quickly (optional).",
+    "keyFlows": "1) Start and onboarding (/start)\n1) User sends /start.\n2) Bot replies with a brief description: send any text in Indonesian or English to translate.\n3) Bot shows current mode (auto) and quick commands to lock direction.\n4) Bot initializes user and chat records in MongoDB.\n\n2) Auto translation flow (private chat)\n1) User sends a text message.\n2) Policy checks: length, rate limits.\n3) Detect language: classify as Indonesian, English, or unknown with confidence.\n4) Decide target language:\n   1) If detected Indonesian: target English.\n   2) If detected English: target Indonesian.\n   3) If unknown or low confidence: either ask user to choose, or default to the last successful direction in this chat with a warning.\n5) Translate via provider module with timeout and retry.\n6) Reply with translated text.\n7) Optionally append a small note when detection was uncertain (configurable).\n\n3) Locked direction flow\n1) User runs /mode locked or /id2en or /en2id.\n2) Bot updates chat settings.\n3) Subsequent messages translate according to locked direction without detection.\n4) /mode auto returns to detection-based behavior.\n\n4) Group chat flow\nDefault behavior: translate only when explicitly invoked.\n1) If groupTrigger=replyonly:\n   1) Bot checks if the message is a reply to a bot message or mentions the bot.\n   2) If yes, translate; if no, ignore.\n2) If groupTrigger=prefixonly:\n   1) Bot checks for a prefix like “tr:” and strips it before translating.\n3) If groupTrigger=always:\n   1) Bot translates all messages (not recommended by default).\nAdmin commands configure this per group.\n\n5) Rate limiting and abuse prevention\n1) Per-user: cap requests per minute and characters per minute.\n2) Per-chat: cap overall throughput in groups.\n3) On limit hit: respond with a short message indicating cooldown.\n4) Track usage in MongoDB with daily counters.\n\n6) Edge cases\n1) Very short messages (for example, “ok”, “ya”): treat as ambiguous. Use chat history direction heuristic or ask user for direction.\n2) Mixed-language messages: choose dominant language by heuristic, or offer a quick override command.\n3) Non-text messages: if caption exists, translate caption; otherwise reply with guidance.\n4) Provider failure: return a friendly error, encourage retry, and do not spam retries.\n\n7) Observability and operations flow\n1) Each update gets a correlation ID.\n2) Log key events: detection result, chosen direction, provider latency, error codes.\n3) Periodic health checks: database connectivity, provider reachability.\n4) Alerting is out of scope for this plan, but logs and metrics must be sufficient to add it later without architectural changes.",
+    "techStack": "Runtime and language:\n1) Node.js (ESM) single process.\n2) grammY for Telegram bot API integration.\n\nPersistence:\n1) MongoDB for chat/user settings, usage counters, and optional translation logs.\n2) Small in-memory caches/maps for hot settings and rate-limiting windows, with MongoDB as source of truth.\n\nExternal services:\n1) Translation API/provider accessed over HTTPS, wrapped behind an internal provider abstraction to allow swapping providers without touching bot logic.\n2) Optional lightweight language detection library locally; otherwise rely on provider detection if supported.\n\nStorage:\n1) No file storage required for baseline.\n2) If later needed (exports, diagnostics attachments), use object storage or simple filesystem storage.\n\nDeployment:\n1) A Node.js server in the cloud.\n2) Telegram token loaded from environment variable TELEGRAMBOTTOKEN.\n3) Configuration via environment variables (MongoDB connection string, provider keys, rate limit thresholds, logging level).\n\nOperational best practices:\n1) Graceful shutdown to finish in-flight translations and close MongoDB connections.\n2) Timeouts and retries for all outbound HTTP calls.\n3) Input validation and strict limits to prevent memory bloat and provider overuse.",
+    "nonFunctional": "Reliability:\n1) Use timeouts for translation requests and limit concurrency.\n2) Implement a simple circuit breaker behavior: if provider failures spike, temporarily fail fast with a clear error to avoid cascading timeouts.\n3) Ensure idempotent handling where possible; avoid duplicate replies by tracking last processed update IDs in memory and/or MongoDB if webhook retries are frequent.\n\nPerformance:\n1) Keep detection lightweight; avoid calling the translation provider twice.\n2) Cache chat settings and user limits briefly in memory.\n3) Enforce message size limits and truncate safely with a note when needed.\n\nSecurity:\n1) Store secrets only in environment variables.\n2) Validate incoming updates (webhook secret path or similar technique) if using webhooks.\n3) Avoid logging message text by default.\n4) Enforce anti-spam limits and ignore obvious automation loops.\n\nPrivacy and compliance:\n1) Provide /privacy to explain what is stored.\n2) Offer /optoutlogs to disable optional diagnostics logging.\n3) Provide /delete to remove user data (user record and chat settings if private chat).\n\nMaintainability:\n1) Clear module boundaries: Telegram handling vs detection vs translation vs persistence.\n2) Provider abstraction for translation.\n3) Centralized configuration and consistent error taxonomy.\n\nTest strategy (high-level):\n1) Unit tests for detection and direction decision.\n2) Integration tests for translation provider wrapper with mocked HTTP.\n3) End-to-end tests using Telegram update fixtures to validate grammY middleware routing."
+  },
+  "runStatuses": {
+    "45e0bc51-dba5-4355-9455-014bf5adcab4:mm8fwgy6:6pqimg": {
+      "phase": "done",
+      "stage": "cold_start",
+      "runId": "45e0bc51-dba5-4355-9455-014bf5adcab4:mm8fwgy6:6pqimg",
+      "lastUserMessage": "build a simple translator bot for indonesia and english ,whenever the bot got messages it will automatically translate in reverse of the input",
+      "startedAt": "2026-03-02T00:27:40.132Z",
+      "updatedAt": "2026-03-02T00:29:44.731Z",
+      "message": "GitHub auto-push skipped (no repo linked or GitHub not connected in session).",
+      "commands": [
+        {
+          "name": "auto_off",
+          "file": "src/commands/auto_off.js"
+        },
+        {
+          "name": "auto_on",
+          "file": "src/commands/auto_on.js"
+        },
+        {
+          "name": "help",
+          "file": "src/commands/help.js"
+        },
+        {
+          "name": "mode",
+          "file": "src/commands/mode.js"
+        },
+        {
+          "name": "start",
+          "file": "src/commands/start.js"
+        },
+        {
+          "name": "toen",
+          "file": "src/commands/toen.js"
+        },
+        {
+          "name": "toid",
+          "file": "src/commands/toid.js"
+        }
+      ],
+      "ok": true,
+      "state": {
+        "projectId": "45e0bc51-dba5-4355-9455-014bf5adcab4",
+        "fileStructure": {
+          ".env.sample": {
+            "type": "file",
+            "content": "# Telegram\nTELEGRAM_BOT_TOKEN=\n\n# CookMyBots AI Gateway (REQUIRED)\n# COOKMYBOTS_AI_ENDPOINT is a BASE URL (do NOT include /chat)\nCOOKMYBOTS_AI_ENDPOINT=https://api.cookmybots.com/api/ai\nCOOKMYBOTS_AI_KEY=\n\n# Database (optional but recommended for persistent settings)\nMONGODB_URI=\n\n# Optional controls\nAI_TIMEOUT_MS=600000\nAI_MAX_RETRIES=2\nCONCURRENCY=20\n\n# Logging (optional)\nLOG_LEVEL=info\n"
+          },
+          "CHANGELOG.md": {
+            "type": "file",
+            "content": "# Changelog\n\nAll notable changes to this bot project are recorded here.\n\n## 2026-03-02 00:29:44. UTC\n- Request: build a simple translator bot for indonesia and english ,whenever the bot got messages it will automatically translate in reverse of the input\n- Summary: Created a new Telegram-only grammY project for auto translating between Indonesian and English. Implemented /start, /help, /auto_on, /auto_off, /toen, /toid, /mode, group mention/reply rules, per-user soft rate limiting…\n- Files: .env.sample, DOCS.md, README.md, package.json, project.json, src/bot.js, src/commands/auto_off.js, src/commands/auto_on.js, src/commands/help.js, src/commands/loader.js, src/commands/mode.js, src/commands/start.js, src/commands/toen.js, src/commands/toid.js (…\n\n"
+          },
+          "DOCS.md": {
+            "type": "file",
+            "content": "What this bot does\nThis Telegram bot automatically translates messages between Indonesian (id) and English (en).\n\nDefault behavior\nIn a new chat, auto-translate is ON and direction is AUTO.\nThat means:\n1) Indonesian input is translated to English.\n2) English input is translated to Indonesian.\n3) If detection is uncertain, it defaults to translating into English.\n\nPrivate vs group chats\n1) Private chats: the bot replies to every non-command text message (unless auto-translate is turned off).\n2) Group chats: the bot replies only when you reply to a bot message OR mention the bot.\n\nCommands\n/start\nWhat it does: Welcome message and quick examples.\nUsage: /start\n\n/help\nWhat it does: Detailed usage and limitations.\nUsage: /help\n\n/auto_on\nWhat it does: Enables auto-translate for the current chat.\nUsage: /auto_on\n\n/auto_off\nWhat it does: Disables auto-translate for the current chat.\nUsage: /auto_off\n\n/toen\nWhat it does: Forces translation target to English for the current chat.\nUsage: /toen\n\n/toid\nWhat it does: Forces translation target to Indonesian for the current chat.\nUsage: /toid\n\n/mode\nWhat it does: Shows current settings for the chat.\nUsage: /mode\n\nEnvironment variables\nTELEGRAM_BOT_TOKEN\nRequired. Telegram bot token.\n\nCOOKMYBOTS_AI_ENDPOINT\nRequired. Base URL for CookMyBots AI Gateway.\nExample format: https://api.cookmybots.com/api/ai\n\nCOOKMYBOTS_AI_KEY\nRequired. API key for CookMyBots AI Gateway.\n\nMONGODB_URI\nOptional but recommended. MongoDB connection string used to persist per-chat settings.\n\nLOG_LEVEL\nOptional. Default is info.\n\nRunning locally\n1) npm install\n2) Copy .env.sample to .env and fill values\n3) npm run dev\n"
+          },
+          "README.md": {
+            "type": "file",
+            "content": "This is a Telegram translation bot built with grammY (Node.js ES modules).\n\nIt automatically translates between Indonesian (id) and English (en).\nIf you send Indonesian, it replies in English. If you send English, it replies in Indonesian.\n\nIn group chats, the bot replies only when:\n1) You reply to a bot message, or\n2) You mention the bot (for example @YourBotUsername)\n\nSetup\n1) Install deps\nnpm install\n\n2) Create a .env file (or set Render env vars) based on .env.sample\n\nRequired\n1) TELEGRAM_BOT_TOKEN\n2) COOKMYBOTS_AI_ENDPOINT\n3) COOKMYBOTS_AI_KEY\n\nOptional but recommended\n1) MONGODB_URI (persists per-chat settings across restarts)\n\nRun locally\nnpm run dev\n\nRun in production\nnpm start\n\nCommands\n/start\nShows a welcome message and quick examples.\n\n/help\nShows detailed help.\n\n/auto_on\nEnable auto-translate for the current chat.\n\n/auto_off\nDisable auto-translate for the current chat.\n\n/toen\nForce translations to English for this chat.\n\n/toid\nForce translations to Indonesian for this chat.\n\n/mode\nShow current chat settings.\n\nNotes\n1) Only text messages are translated.\n2) If MONGODB_URI is missing, the bot still works but settings reset on restart.\n3) The bot uses CookMyBots AI Gateway only (no direct OpenAI calls).\n"
+          },
+          "package.json": {
+            "type": "file",
+            "content": "{\n  \"name\": \"cookmybots-telegram-bot\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=18\"\n  },\n  \"scripts\": {\n    \"install:root\": \"bash -lc \\\"set -e; if [ -f package-lock.json ]; then npm ci; else npm install; fi\\\"\",\n    \"build\": \"npm run install:root && echo build\",\n    \"start\": \"node src/index.js\",\n    \"dev\": \"node --watch src/index.js\"\n  },\n  \"dependencies\": {\n    \"dotenv\": \"^16.4.5\",\n    \"grammy\": \"^1.20.0\",\n    \"mongodb\": \"^6.10.0\",\n    \"@grammyjs/runner\": \"^2.0.3\"\n  },\n  \"devDependencies\": {}\n}\n"
+          },
+          "src": {
+            "type": "dir",
+            "children": {
+              "bot.js": {
+                "type": "file",
+                "content": "const log = {\n  info:  (...a) => console.log(...a),\n  warn:  (...a) => console.warn(...a),\n  error: (...a) => console.error(...a),\n};\n\nimport { Bot } from \"grammy\";\nimport { cfg } from \"./lib/config.js\";\n\nimport { safeErr } from \"./lib/safeErr.js\";\nimport { rateLimitMiddleware } from \"./middleware/rateLimit.js\";\nimport { getChatSettings } from \"./services/chatSettings.js\";\nimport { translateText } from \"./services/translate.js\";\nimport { buildBotProfile } from \"./lib/botProfile.js\";\n\nfunction isGroupChat(chat) {\n  const t = chat?.type || \"private\";\n  return t === \"group\" || t === \"supergroup\";\n}\n\nfunction mentionedByEntity({ text, entities, botUsername }) {\n  if (!botUsername) return false;\n  const raw = String(text || \"\");\n  const ents = Array.isArray(entities) ? entities : [];\n\n  return ents.some((e) => {\n    if (!e || e.type !== \"mention\") return false;\n    const s = raw.slice(e.offset, e.offset + e.length);\n    return s.toLowerCase() === (\"@\" + String(botUsername).toLowerCase());\n  });\n}\n\nfunction stripMention(text, botUsername) {\n  if (!botUsername) return String(text || \"\").trim();\n  const raw = String(text || \"\");\n  const re = new RegExp(\"@\" + String(botUsername) + \"\\\\b\", \"ig\");\n  return raw.replace(re, \"\").trim();\n}\n\nfunction isReplyToBot(ctx, botUsername) {\n  const replyTo = ctx.message?.reply_to_message;\n  if (!replyTo?.from?.is_bot) return false;\n  if (!botUsername) return false;\n  const u = String(replyTo.from.username || \"\").toLowerCase();\n  return u === String(botUsername).toLowerCase();\n}\n\nexport function createBot(token) {\n  const bot = new Bot(token);\n\n  bot.use(rateLimitMiddleware({ limit: 5, windowMs: 10_000 }));\n\n  // Commands must be registered by src/commands/loader.js before this handler.\n  bot.on(\"message\", async (ctx, next) => {\n    // Non-text message handling\n    const hasText = typeof ctx.message?.text === \"string\";\n\n    // Ignore commands here\n    if (hasText && ctx.message.text.startsWith(\"/\")) return next();\n\n    // In groups: only respond when mentioned or replied-to\n    const botUsername = ctx.me?.username || bot.botInfo?.username || \"\";\n    if (isGroupChat(ctx.chat)) {\n      const isMentioned = mentionedByEntity({\n        text: ctx.message?.text,\n        entities: ctx.message?.entities,\n        botUsername\n      });\n\n      const replied = isReplyToBot(ctx, botUsername);\n      if (!isMentioned && !replied) return;\n    }\n\n    if (!hasText) {\n      try {\n        await ctx.reply(\"Send text to translate.\");\n      } catch {}\n      return;\n    }\n\n    const chatId = ctx.chat?.id;\n    if (!chatId) return;\n\n    const { settings } = await getChatSettings(chatId);\n    if (!settings.autoTranslate) return;\n\n    const cleaned = stripMention(ctx.message.text, botUsername);\n    if (!cleaned) return;\n\n    const botProfile = buildBotProfile({ botUsername });\n\n    try {\n      const result = await translateText({\n        botProfile,\n        text: cleaned,\n        directionMode: settings.directionMode\n      });\n\n      if (!result.ok) {\n        await ctx.reply(\"Sorry, I couldn't translate that right now.\");\n        return;\n      }\n\n      const out = result.label + \"\\n\" + result.translatedText;\n      await ctx.reply(out);\n    } catch (e) {\n      log.error(\"[translate] handler failed\", { err: safeErr(e) });\n      try {\n        await ctx.reply(\"Sorry, something went wrong.\");\n      } catch {}\n    }\n  });\n\n  return bot;\n}\n"
+              },
+              "commands": {
+                "type": "dir",
+                "children": {
+                  "auto_off.js": {
+                    "type": "file",
+                    "content": "import { updateChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"auto_off\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const r = await updateChatSettings(chatId, { autoTranslate: false });\n    if (!r.ok) return ctx.reply(\"Auto-translate is OFF (temporary). Add MONGODB_URI to persist settings.\");\n\n    await ctx.reply(\"Auto-translate is OFF for this chat.\");\n  });\n}\n"
+                  },
+                  "auto_on.js": {
+                    "type": "file",
+                    "content": "import { updateChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"auto_on\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const r = await updateChatSettings(chatId, { autoTranslate: true });\n    if (!r.ok) return ctx.reply(\"Auto-translate is ON (temporary). Add MONGODB_URI to persist settings.\");\n\n    await ctx.reply(\"Auto-translate is ON for this chat.\");\n  });\n}\n"
+                  },
+                  "help.js": {
+                    "type": "file",
+                    "content": "export default function register(bot) {\n  bot.command(\"help\", async (ctx) => {\n    const txt =\n      \"How to use:\\n\" +\n      \"Send any text message and I'll translate it between Indonesian and English.\\n\\n\" +\n      \"Commands:\\n\" +\n      \"/start - Welcome and quick examples\\n\" +\n      \"/help - This help\\n\" +\n      \"/auto_on - Enable auto-translate for this chat\\n\" +\n      \"/auto_off - Disable auto-translate for this chat\\n\" +\n      \"/toen - Force translating into English\\n\" +\n      \"/toid - Force translating into Indonesian\\n\" +\n      \"/mode - Show current settings\\n\\n\" +\n      \"Notes / limitations:\\n\" +\n      \"1) Only text messages are translated.\\n\" +\n      \"2) In groups, I respond only if you reply to me or mention me (to reduce noise).\\n\" +\n      \"3) If language detection is uncertain, I default to translating into English.\";\n\n    await ctx.reply(txt);\n  });\n}\n"
+                  },
+                  "loader.js": {
+                    "type": "file",
+                    "content": "import fs from \"node:fs\";\nimport path from \"node:path\";\nimport { fileURLToPath, pathToFileURL } from \"node:url\";\n\nexport async function registerCommands(bot) {\n  const dir = path.dirname(fileURLToPath(import.meta.url));\n\n  const commandFiles = fs\n    .readdirSync(dir)\n    .filter((file) => file.endsWith(\".js\") && file !== \"loader.js\" && !file.startsWith(\"_\"));\n\n  for (const file of commandFiles) {\n    const full = path.join(dir, file);\n    const mod = await import(pathToFileURL(full).href);\n\n    const handler = mod?.default || mod?.register;\n\n    if (typeof handler === \"function\") {\n      await handler(bot);\n    } else {\n      console.warn(\"[commands]\" + file + \" has no usable export; skipped.\");\n    }\n  }\n}\n"
+                  },
+                  "mode.js": {
+                    "type": "file",
+                    "content": "import { getChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"mode\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const { settings, persisted } = await getChatSettings(chatId);\n\n    const dir = settings.directionMode || \"auto\";\n    const auto = settings.autoTranslate ? \"ON\" : \"OFF\";\n\n    const txt =\n      \"Current chat settings:\\n\" +\n      \"Auto-translate: \" + auto + \"\\n\" +\n      \"Direction: \" + dir + \"\\n\" +\n      (persisted ? \"\" : \"\\nNote: Add MONGODB_URI to persist settings across restarts.\");\n\n    await ctx.reply(txt);\n  });\n}\n"
+                  },
+                  "start.js": {
+                    "type": "file",
+                    "content": "export default function register(bot) {\n  bot.command(\"start\", async (ctx) => {\n    const txt =\n      \"Hi! Send me a message in Indonesian or English and I'll translate it to the other language.\\n\\n\" +\n      \"Auto translate is ON by default.\\n\\n\" +\n      \"Examples:\\n\" +\n      \"1) kamu lagi di mana?  → I translate to English\\n\" +\n      \"2) where are you? → Aku terjemahkan ke Indonesia\\n\\n\" +\n      \"Commands: /help, /auto_off, /auto_on, /toen, /toid, /mode\";\n\n    await ctx.reply(txt);\n  });\n}\n"
+                  },
+                  "toen.js": {
+                    "type": "file",
+                    "content": "import { updateChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"toen\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const r = await updateChatSettings(chatId, { directionMode: \"toen\" });\n    if (!r.ok) return ctx.reply(\"Direction set to English (temporary). Add MONGODB_URI to persist settings.\");\n\n    await ctx.reply(\"Direction set: always translate into English.\");\n  });\n}\n"
+                  },
+                  "toid.js": {
+                    "type": "file",
+                    "content": "import { updateChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"toid\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const r = await updateChatSettings(chatId, { directionMode: \"toid\" });\n    if (!r.ok) return ctx.reply(\"Direction set to Indonesian (temporary). Add MONGODB_URI to persist settings.\");\n\n    await ctx.reply(\"Direction set: always translate into Indonesian.\");\n  });\n}\n"
+                  }
+                }
+              },
+              "index.js": {
+                "type": "file",
+                "content": "const log = {\n  info:  (...a) => console.log(...a),\n  warn:  (...a) => console.warn(...a),\n  error: (...a) => console.error(...a),\n};\n\nimport \"dotenv/config\";\n\nimport { run } from \"@grammyjs/runner\";\nimport { cfg } from \"./lib/config.js\";\n\nimport { safeErr } from \"./lib/safeErr.js\";\n\nprocess.on(\"unhandledRejection\", (r) => {\n  console.error(\"UnhandledRejection:\", r);\n  process.exit(1);\n});\n\nprocess.on(\"uncaughtException\", (e) => {\n  console.error(\"UncaughtException:\", e);\n  process.exit(1);\n});\n\nlet runner = null;\nlet restarting = false;\n\nfunction sleep(ms) {\n  return new Promise((r) => setTimeout(r, ms));\n}\n\nasync function startPolling(bot) {\n  await bot.api.deleteWebhook({ drop_pending_updates: true });\n\n  let backoff = 2000;\n  while (true) {\n    try {\n      log.info(\"[polling] start\", { concurrency: 1 });\n      runner = run(bot, { concurrency: 1 });\n      await runner.task();\n\n      // If runner.task resolves, treat it as a stop and restart.\n      throw new Error(\"Polling runner stopped\");\n    } catch (e) {\n      const msg = safeErr(e);\n\n      // 409 Conflict: another getUpdates is running\n      if (String(msg).includes(\"409\") || String(msg).toLowerCase().includes(\"conflict\")) {\n        log.warn(\"[polling] conflict; retrying\", { backoffMs: backoff, err: msg });\n      } else {\n        log.error(\"[polling] failed\", { backoffMs: backoff, err: msg });\n      }\n\n      try {\n        runner?.stop?.();\n      } catch {}\n      runner = null;\n\n      await sleep(backoff);\n      backoff = Math.min(20000, Math.round(backoff * 1.7));\n    }\n  }\n}\n\nasync function boot() {\n  log.info(\"[boot] start\", {\n    TELEGRAM_BOT_TOKEN_set: !!cfg.TELEGRAM_BOT_TOKEN,\n    COOKMYBOTS_AI_ENDPOINT_set: !!cfg.COOKMYBOTS_AI_ENDPOINT,\n    COOKMYBOTS_AI_KEY_set: !!cfg.COOKMYBOTS_AI_KEY,\n    MONGODB_URI_set: !!cfg.MONGODB_URI\n  });\n\n  if (!cfg.TELEGRAM_BOT_TOKEN) {\n    console.error(\"TELEGRAM_BOT_TOKEN is required. Add it to your env and redeploy.\");\n    process.exit(1);\n  }\n\n  if (!cfg.COOKMYBOTS_AI_ENDPOINT || !cfg.COOKMYBOTS_AI_KEY) {\n    console.error(\"COOKMYBOTS_AI_ENDPOINT and COOKMYBOTS_AI_KEY are required for translation.\");\n    process.exit(1);\n  }\n\n  const { createBot } = await import(\"./bot.js\");\n  const { registerCommands } = await import(\"./commands/loader.js\");\n\n  const bot = createBot(cfg.TELEGRAM_BOT_TOKEN);\n\n  bot.catch((err) => {\n    log.error(\"[bot] error\", { err: safeErr(err?.error || err) });\n  });\n\n  try {\n    await bot.init();\n  } catch (e) {\n    log.warn(\"[boot] bot.init failed (continuing)\", { err: safeErr(e) });\n  }\n\n  await registerCommands(bot);\n\n  try {\n    await bot.api.setMyCommands([\n      { command: \"start\", description: \"Welcome & examples\" },\n      { command: \"help\", description: \"How to use\" },\n      { command: \"auto_on\", description: \"Enable auto-translate\" },\n      { command: \"auto_off\", description: \"Disable auto-translate\" },\n      { command: \"toen\", description: \"Force translation to English\" },\n      { command: \"toid\", description: \"Force translation to Indonesian\" },\n      { command: \"mode\", description: \"Show current chat mode\" }\n    ]);\n  } catch (e) {\n    log.warn(\"[boot] setMyCommands failed\", { err: safeErr(e) });\n  }\n\n  // Memory log once per minute\n  setInterval(() => {\n    const m = process.memoryUsage();\n    console.log(\"[mem]\", {\n      rssMB: Math.round(m.rss / 1e6),\n      heapUsedMB: Math.round(m.heapUsed / 1e6)\n    });\n  }, 60_000).unref();\n\n  await startPolling(bot);\n}\n\nboot().catch(async (e) => {\n  log.error(\"[boot] failed\", { err: safeErr(e) });\n  if (!restarting) {\n    restarting = true;\n    await sleep(2000);\n    process.exit(1);\n  }\n});\n"
+              },
+              "lib": {
+                "type": "dir",
+                "children": {
+                  "ai.js": {
+                    "type": "file",
+                    "content": "import { cfg } from \"./config.js\";\nimport { log } from \"./log.js\";\nimport { safeErr } from \"./safeErr.js\";\n\nfunction trimSlash(u) {\n  u = String(u || \"\");\n  while (u.endsWith(\"/\")) u = u.slice(0, -1);\n  return u;\n}\n\nfunction sleep(ms) {\n  return new Promise((r) => setTimeout(r, ms));\n}\n\nfunction withTimeout(ms) {\n  const ctrl = new AbortController();\n  const t = setTimeout(() => ctrl.abort(), ms);\n  return { ctrl, clear: () => clearTimeout(t) };\n}\n\nfunction getTimeoutMs(override) {\n  const v = Number(override || cfg.AI_TIMEOUT_MS || 600000);\n  return Number.isFinite(v) && v > 0 ? v : 600000;\n}\n\nfunction getRetries(override) {\n  const v = Number.isFinite(override) ? Number(override) : Number(cfg.AI_MAX_RETRIES || 2);\n  return Number.isFinite(v) && v >= 0 ? v : 2;\n}\n\nfunction isRetryableStatus(status) {\n  return status === 408 || status === 429 || (status >= 500 && status <= 599);\n}\n\nasync function safeReadJson(r) {\n  const text = await r.text();\n  let json = null;\n  try {\n    json = JSON.parse(text);\n  } catch {}\n  return { text, json };\n}\n\nexport async function aiChat({ messages, meta = {} }, opts = {}) {\n  const base = trimSlash(cfg.COOKMYBOTS_AI_ENDPOINT || \"\");\n  const key = String(cfg.COOKMYBOTS_AI_KEY || \"\");\n\n  if (!base || !key) {\n    const err = \"AI_NOT_CONFIGURED (missing COOKMYBOTS_AI_ENDPOINT/COOKMYBOTS_AI_KEY)\";\n    return { ok: false, status: 412, json: null, error: err };\n  }\n\n  const timeoutMs = getTimeoutMs(opts.timeoutMs);\n  const retries = getRetries(opts.retries);\n\n  const url = base + \"/chat\";\n\n  const started = Date.now();\n  log.info(\"[ai] chat start\", {\n    feature: \"translate\",\n    timeoutMs,\n    retries,\n    endpointSet: true,\n    keySet: true\n  });\n\n  let attempt = 0;\n  while (true) {\n    attempt++;\n    const { ctrl, clear } = withTimeout(timeoutMs);\n    try {\n      const r = await fetch(url, {\n        method: \"POST\",\n        headers: {\n          Authorization: \"Bearer \" + key,\n          \"Content-Type\": \"application/json\"\n        },\n        body: JSON.stringify({ messages, meta }),\n        signal: ctrl.signal\n      });\n\n      const { json, text } = await safeReadJson(r);\n\n      if (!r.ok) {\n        const msg = json?.error || json?.message || text || \"AI_ERROR\";\n        log.warn(\"[ai] chat fail\", { status: r.status, attempt, err: String(msg).slice(0, 300) });\n        if (attempt <= retries && isRetryableStatus(r.status)) {\n          await sleep(500 * attempt);\n          continue;\n        }\n        return { ok: false, status: r.status, json, error: String(msg) };\n      }\n\n      const latencyMs = Date.now() - started;\n      log.info(\"[ai] chat success\", { latencyMs, attempt });\n      return { ok: true, status: r.status, json, error: null };\n    } catch (e) {\n      const msg = safeErr(e);\n      const status = e?.name === \"AbortError\" ? 408 : 0;\n      log.warn(\"[ai] chat exception\", { status, attempt, err: String(msg).slice(0, 300) });\n      if (attempt <= retries && (status === 0 || status === 408)) {\n        await sleep(500 * attempt);\n        continue;\n      }\n      return { ok: false, status, json: null, error: String(msg) };\n    } finally {\n      clear();\n    }\n  }\n}\n"
+                  },
+                  "botProfile.js": {
+                    "type": "file",
+                    "content": "export function buildBotProfile({ botUsername } = {}) {\n  const name = botUsername ? (\"@\" + botUsername) : \"this bot\";\n\n  return [\n    \"Bot purpose: Automatically translate chat messages between Indonesian (id) and English (en).\",\n    \"Behavior: For normal text messages, detect if input is Indonesian or English, then translate to the opposite language unless a forced direction is set.\",\n    \"Public commands:\",\n    \"/start - Welcome and quick examples\",\n    \"/help - Detailed usage\",\n    \"/auto_on - Enable auto-translate for this chat\",\n    \"/auto_off - Disable auto-translate for this chat\",\n    \"/toen - Force translating into English\",\n    \"/toid - Force translating into Indonesian\",\n    \"/mode - Show current settings\",\n    \"Key rules:\",\n    \"1) Only translate non-command text (messages starting with / are commands and must not be translated).\",\n    \"2) In group chats, respond only when mentioned by \" + name + \" or when the message is a reply to a bot message.\",\n    \"3) Reply should be the translated text only (no extra commentary).\"\n  ].join(\"\\n\");\n}\n"
+                  },
+                  "config.js": {
+                    "type": "file",
+                    "content": "export const cfg = {\n  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,\n\n  // Mongo\n  MONGODB_URI: process.env.MONGODB_URI || \"\",\n\n  // CookMyBots AI Gateway\n  // Base URL like: https://api.cookmybots.com/api/ai\n  COOKMYBOTS_AI_ENDPOINT: process.env.COOKMYBOTS_AI_ENDPOINT || \"\",\n  COOKMYBOTS_AI_KEY: process.env.COOKMYBOTS_AI_KEY || \"\",\n\n  // Controls (safe fallbacks)\n  LOG_LEVEL: (process.env.LOG_LEVEL || \"info\").toLowerCase(),\n  AI_TIMEOUT_MS: Number(process.env.AI_TIMEOUT_MS || 600000),\n  AI_MAX_RETRIES: Number(process.env.AI_MAX_RETRIES || 2),\n  CONCURRENCY: Number(process.env.CONCURRENCY || 20)\n};\n"
+                  },
+                  "db.js": {
+                    "type": "file",
+                    "content": "import { MongoClient } from \"mongodb\";\nimport { log } from \"./log.js\";\nimport { safeErr } from \"./safeErr.js\";\n\nlet _client = null;\nlet _db = null;\nlet _ensured = false;\n\nexport async function getDb(mongoUri) {\n  if (!mongoUri) return null;\n  if (_db) return _db;\n\n  try {\n    _client = new MongoClient(mongoUri, { maxPoolSize: 5 });\n    await _client.connect();\n    _db = _client.db();\n\n    log.info(\"[db] connected\", { mongoConfigured: true });\n\n    if (!_ensured) {\n      _ensured = true;\n      await ensureIndexes(_db);\n    }\n\n    return _db;\n  } catch (e) {\n    log.error(\"[db] connect failed\", { err: safeErr(e) });\n    _client = null;\n    _db = null;\n    return null;\n  }\n}\n\nasync function ensureIndexes(db) {\n  try {\n    await db.collection(\"chat_settings\").createIndex({ chatId: 1 }, { unique: true });\n  } catch (e) {\n    log.warn(\"[db] ensureIndexes failed\", { err: safeErr(e) });\n  }\n}\n"
+                  },
+                  "log.js": {
+                    "type": "file",
+                    "content": "import { cfg } from \"./config.js\";\n\nconst levelOrder = {\n  debug: 10,\n  info: 20,\n  warn: 30,\n  error: 40\n};\n\nfunction shouldLog(level) {\n  const cur = levelOrder[cfg.LOG_LEVEL] ?? levelOrder.info;\n  return (levelOrder[level] ?? 999) >= cur;\n}\n\nexport const log = {\n  debug: (msg, meta = undefined) => {\n    if (!shouldLog(\"debug\")) return;\n    console.log(\"[debug]\", msg, meta || \"\");\n  },\n  info: (msg, meta = undefined) => {\n    if (!shouldLog(\"info\")) return;\n    console.log(\"[info]\", msg, meta || \"\");\n  },\n  warn: (msg, meta = undefined) => {\n    if (!shouldLog(\"warn\")) return;\n    console.warn(\"[warn]\", msg, meta || \"\");\n  },\n  error: (msg, meta = undefined) => {\n    if (!shouldLog(\"error\")) return;\n    console.error(\"[error]\", msg, meta || \"\");\n  }\n};\n"
+                  },
+                  "memory.js": {
+                    "type": "file",
+                    "content": "\n      import { getDb } from \"./db.js\";\n\nconst COL = \"memory_messages\";\n\nexport async function addTurn({ mongoUri, platform, userId, chatId, role, text }) {\n  const db = await getDb(mongoUri);\n  const doc = {\n    platform,\n    userId: String(userId),\n    chatId: chatId ? String(chatId) : \"\",\n    role,\n    text: String(text || \"\").slice(0, 4000),\n    ts: new Date(),\n  };\n\n  if (!db) return; // allow bot to run without DB\n  await db.collection(COL).insertOne(doc);\n}\n\nexport async function getRecentTurns({ mongoUri, platform, userId, chatId, limit = 14 }) {\n  const db = await getDb(mongoUri);\n  if (!db) return [];\n\n  const q = {\n    platform,\n    userId: String(userId),\n  };\n  if (chatId) q.chatId = String(chatId);\n\n  const rows = await db\n    .collection(COL)\n    .find(q)\n    .sort({ ts: -1 })\n    .limit(limit)\n    .toArray();\n\n  // return chronological\n  return rows.reverse().map((r) => ({ role: r.role, text: r.text }));\n}\n\nexport async function clearUserMemory({ mongoUri, platform, userId, chatId }) {\n  const db = await getDb(mongoUri);\n  if (!db) return;\n\n  const q = { platform, userId: String(userId) };\n  if (chatId) q.chatId = String(chatId);\n\n  await db.collection(COL).deleteMany(q);\n}"
+                  },
+                  "safeErr.js": {
+                    "type": "file",
+                    "content": "export function safeErr(err) {\n  return (\n    err?.response?.data?.error?.message ||\n    err?.response?.data?.message ||\n    err?.message ||\n    String(err)\n  );\n}\n"
+                  }
+                }
+              },
+              "middleware": {
+                "type": "dir",
+                "children": {
+                  "rateLimit.js": {
+                    "type": "file",
+                    "content": "const buckets = new Map();\n\nfunction nowMs() {\n  return Date.now();\n}\n\nexport function rateLimitMiddleware({ limit = 5, windowMs = 10_000 } = {}) {\n  return async (ctx, next) => {\n    const userId = ctx.from?.id ? String(ctx.from.id) : \"\";\n    if (!userId) return next();\n\n    const now = nowMs();\n    const b = buckets.get(userId) || { start: now, count: 0, warnedAt: 0 };\n\n    if (now - b.start > windowMs) {\n      b.start = now;\n      b.count = 0;\n    }\n\n    b.count += 1;\n    buckets.set(userId, b);\n\n    if (b.count > limit) {\n      if (now - (b.warnedAt || 0) > windowMs) {\n        b.warnedAt = now;\n        buckets.set(userId, b);\n        try {\n          await ctx.reply(\"You're sending too fast. Please wait a few seconds.\");\n        } catch {}\n      }\n      return;\n    }\n\n    return next();\n  };\n}\n"
+                  }
+                }
+              },
+              "services": {
+                "type": "dir",
+                "children": {
+                  "chatSettings.js": {
+                    "type": "file",
+                    "content": "const log = {\n  info:  (...a) => console.log(...a),\n  warn:  (...a) => console.warn(...a),\n  error: (...a) => console.error(...a),\n};\n\nimport { getDb } from \"../lib/db.js\";\nimport { cfg } from \"../lib/config.js\";\n\nimport { safeErr } from \"../lib/safeErr.js\";\n\nconst COL = \"chat_settings\";\n\nexport function defaultChatSettings(chatId) {\n  return {\n    chatId: String(chatId),\n    autoTranslate: true,\n    directionMode: \"auto\" // \"auto\" | \"toen\" | \"toid\"\n  };\n}\n\nexport async function getChatSettings(chatId) {\n  const id = String(chatId);\n  const db = await getDb(cfg.MONGODB_URI);\n  if (!db) return { settings: defaultChatSettings(id), persisted: false };\n\n  try {\n    const row = await db.collection(COL).findOne({ chatId: id });\n    if (!row) {\n      const def = defaultChatSettings(id);\n      await db.collection(COL).updateOne(\n        { chatId: id },\n        {\n          $setOnInsert: { createdAt: new Date() },\n          $set: { ...def, updatedAt: new Date() }\n        },\n        { upsert: true }\n      );\n      return { settings: def, persisted: true };\n    }\n\n    return {\n      settings: {\n        chatId: id,\n        autoTranslate: row.autoTranslate !== false,\n        directionMode: row.directionMode === \"toen\" || row.directionMode === \"toid\" ? row.directionMode : \"auto\"\n      },\n      persisted: true\n    };\n  } catch (e) {\n    log.error(\"[db] read failed\", { col: COL, op: \"findOne\", err: safeErr(e) });\n    return { settings: defaultChatSettings(id), persisted: false };\n  }\n}\n\nexport async function updateChatSettings(chatId, patch) {\n  const id = String(chatId);\n  const db = await getDb(cfg.MONGODB_URI);\n  if (!db) {\n    return { ok: false, error: \"DB_NOT_CONFIGURED\" };\n  }\n\n  const mutable = { ...patch };\n  delete mutable._id;\n  delete mutable.createdAt;\n\n  try {\n    await db.collection(COL).updateOne(\n      { chatId: id },\n      {\n        $setOnInsert: { },\n        $set: { ...mutable, chatId: id, updatedAt: new Date() }\n      },\n      { upsert: true }\n    );\n    return { ok: true };\n  } catch (e) {\n    log.error(\"[db] write failed\", { col: COL, op: \"updateOne\", err: safeErr(e) });\n    return { ok: false, error: safeErr(e) };\n  }\n}\n"
+                  },
+                  "translate.js": {
+                    "type": "file",
+                    "content": "import { aiChat } from \"../lib/ai.js\";\n\nfunction clampText(s) {\n  const t = String(s || \"\");\n  if (t.length <= 3500) return t;\n  return t.slice(0, 3500);\n}\n\nfunction directionLabel(targetLang) {\n  return targetLang === \"en\" ? \"ID → EN\" : \"EN → ID\";\n}\n\nexport async function translateText({ botProfile, text, directionMode }) {\n  const t = clampText(text);\n\n  const targetHint =\n    directionMode === \"toen\" ? \"en\" :\n    directionMode === \"toid\" ? \"id\" :\n    \"auto\";\n\n  const system =\n    String(botProfile || \"\") +\n    \"\\n\\n\" +\n    \"Task: Translate chat messages between Indonesian (id) and English (en).\" +\n    \"\\n\" +\n    \"Rules:\" +\n    \"\\n\" +\n    \"1) Detect whether the input text is Indonesian or English.\" +\n    \"\\n\" +\n    \"2) If target is auto: translate to the opposite language. If detection is uncertain, translate into English.\" +\n    \"\\n\" +\n    \"3) If target is forced (en or id), translate into that target language.\" +\n    \"\\n\" +\n    \"4) Return ONLY the translated text. No labels, no quotes, no explanations.\";\n\n  const user =\n    \"Target: \" + targetHint + \"\\n\" +\n    \"Text:\\n\" + t;\n\n  const res = await aiChat({\n    messages: [\n      { role: \"system\", content: system },\n      { role: \"user\", content: user }\n    ],\n    meta: { platform: \"telegram\", purpose: \"translate\", target: targetHint }\n  });\n\n  if (!res.ok) {\n    return { ok: false, error: res.error || \"AI_ERROR\" };\n  }\n\n  const content = res?.json?.output?.content;\n  const out = String(content || \"\").trim();\n  if (!out) return { ok: false, error: \"EMPTY_TRANSLATION\" };\n\n  let label = \"\";\n  if (directionMode === \"toen\") label = directionLabel(\"en\");\n  else if (directionMode === \"toid\") label = directionLabel(\"id\");\n  else {\n    // For auto mode, infer label heuristically to match the prompt's intent.\n    // If output contains many Indonesian stop words, assume EN->ID; else ID->EN.\n    const lower = out.toLowerCase();\n    const idHints = [\" yang \", \" tidak \", \" saya \", \" kamu \", \" ini \", \" itu \", \" dan \", \" di \", \" ke \"];\n    const idScore = idHints.reduce((n, w) => n + (lower.includes(w) ? 1 : 0), 0);\n    label = idScore >= 2 ? directionLabel(\"id\") : directionLabel(\"en\");\n  }\n\n  return { ok: true, translatedText: out, label };\n}\n"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "commands": [
+          {
+            "command": "/auto_off",
+            "description": "Disables auto-translate for the current chat.",
+            "usage": "/auto_off",
+            "examples": [
+              "User: /auto_off → Bot: Auto-translate is OFF for this chat."
+            ],
+            "example": "User: /auto_off → Bot: Auto-translate is OFF for this chat.",
+            "notes": "Useful in noisy group chats."
+          },
+          {
+            "command": "/auto_on",
+            "description": "Enables auto-translate for the current chat.",
+            "usage": "/auto_on",
+            "examples": [
+              "User: /auto_on → Bot: Auto-translate is ON for this chat."
+            ],
+            "example": "User: /auto_on → Bot: Auto-translate is ON for this chat.",
+            "notes": "Requires MONGODB_URI to persist across restarts; otherwise it may be temporary."
+          },
+          {
+            "command": "/help",
+            "description": "Shows detailed usage, commands list, and limitations.",
+            "usage": "/help",
+            "examples": [
+              "User: /help → Bot: shows all commands and group behavior rules"
+            ],
+            "example": "User: /help → Bot: shows all commands and group behavior rules",
+            "notes": "In groups, the bot responds only when mentioned or replied-to."
+          },
+          {
+            "command": "/mode",
+            "description": "Shows current chat settings (auto on/off, direction mode).",
+            "usage": "/mode",
+            "examples": [
+              "User: /mode → Bot: Auto-translate: ON, Direction: auto"
+            ],
+            "example": "User: /mode → Bot: Auto-translate: ON, Direction: auto",
+            "notes": "If MONGODB_URI is missing, the bot will say settings are not persisted."
+          },
+          {
+            "command": "/start",
+            "description": "Shows a welcome message, explains auto-translation, and gives quick examples.",
+            "usage": "/start",
+            "examples": [
+              "User: /start → Bot: explains how to send text and get translations"
+            ],
+            "example": "User: /start → Bot: explains how to send text and get translations",
+            "notes": "Auto-translate defaults to ON for new chats."
+          },
+          {
+            "command": "/toen",
+            "description": "Forces translation target to English for the current chat.",
+            "usage": "/toen",
+            "examples": [
+              "User: /toen → Bot: Direction set: always translate into English."
+            ],
+            "example": "User: /toen → Bot: Direction set: always translate into English.",
+            "notes": "Overrides language detection until changed."
+          },
+          {
+            "command": "/toid",
+            "description": "Forces translation target to Indonesian for the current chat.",
+            "usage": "/toid",
+            "examples": [
+              "User: /toid → Bot: Direction set: always translate into Indonesian."
+            ],
+            "example": "User: /toid → Bot: Direction set: always translate into Indonesian.",
+            "notes": "Overrides language detection until changed."
+          }
+        ],
+        "envVarDocs": [
+          {
+            "key": "TELEGRAM_BOT_TOKEN",
+            "title": "Telegram Bot Token",
+            "description": "Token used to connect the bot to Telegram via grammY.",
+            "usage": "Read at startup; if missing the service exits with a clear message.",
+            "howToGet": "Create a bot with @BotFather on Telegram and copy the token.",
+            "example": "123456789:AA... (format example)",
+            "isSecret": true,
+            "required": true
+          },
+          {
+            "key": "COOKMYBOTS_AI_ENDPOINT",
+            "title": "CookMyBots AI Gateway Base URL",
+            "description": "Base URL for the CookMyBots AI Gateway. The bot calls /chat by appending to this base URL.",
+            "usage": "Used by src/lib/ai.js for translation requests.",
+            "howToGet": "Provided by CookMyBots (AI Gateway).",
+            "example": "https://api.cookmybots.com/api/ai",
+            "isSecret": false,
+            "required": true
+          },
+          {
+            "key": "COOKMYBOTS_AI_KEY",
+            "title": "CookMyBots AI Gateway Key",
+            "description": "Authorization key for the CookMyBots AI Gateway.",
+            "usage": "Sent as Authorization: Bearer <key> on every AI request.",
+            "howToGet": "Provided by CookMyBots (AI Gateway).",
+            "example": "cmb_ai_... (format example)",
+            "isSecret": true,
+            "required": true
+          },
+          {
+            "key": "MONGODB_URI",
+            "title": "MongoDB Connection String",
+            "description": "MongoDB connection string used to persist per-chat settings (autoTranslate, directionMode). If missing, the bot still runs but settings reset on restart.",
+            "usage": "Used by src/lib/db.js and src/services/chatSettings.js.",
+            "howToGet": "Create a MongoDB database (Atlas or managed MongoDB) and copy the connection string.",
+            "example": "mongodb+srv://user:pass@cluster/dbname",
+            "isSecret": true,
+            "required": false
+          },
+          {
+            "key": "LOG_LEVEL",
+            "title": "Log Level",
+            "description": "Controls log verbosity. Supported: debug, info, warn, error.",
+            "usage": "Used by src/lib/log.js to filter logs.",
+            "howToGet": "Set manually.",
+            "example": "info",
+            "isSecret": false,
+            "required": false
+          },
+          {
+            "key": "AI_TIMEOUT_MS",
+            "title": "AI Timeout (ms)",
+            "description": "Timeout for AI Gateway calls in milliseconds.",
+            "usage": "Used by src/lib/ai.js.",
+            "howToGet": "Set manually if needed.",
+            "example": "600000",
+            "isSecret": false,
+            "required": false
+          }
+        ],
+        "commandDocs": [
+          {
+            "command": "/start",
+            "description": "Shows a welcome message, explains auto-translation, and gives quick examples.",
+            "usage": "/start",
+            "examples": [
+              "User: /start → Bot: explains how to send text and get translations"
+            ],
+            "notes": "Auto-translate defaults to ON for new chats."
+          },
+          {
+            "command": "/help",
+            "description": "Shows detailed usage, commands list, and limitations.",
+            "usage": "/help",
+            "examples": [
+              "User: /help → Bot: shows all commands and group behavior rules"
+            ],
+            "notes": "In groups, the bot responds only when mentioned or replied-to."
+          },
+          {
+            "command": "/auto_on",
+            "description": "Enables auto-translate for the current chat.",
+            "usage": "/auto_on",
+            "examples": [
+              "User: /auto_on → Bot: Auto-translate is ON for this chat."
+            ],
+            "notes": "Requires MONGODB_URI to persist across restarts; otherwise it may be temporary."
+          },
+          {
+            "command": "/auto_off",
+            "description": "Disables auto-translate for the current chat.",
+            "usage": "/auto_off",
+            "examples": [
+              "User: /auto_off → Bot: Auto-translate is OFF for this chat."
+            ],
+            "notes": "Useful in noisy group chats."
+          },
+          {
+            "command": "/toen",
+            "description": "Forces translation target to English for the current chat.",
+            "usage": "/toen",
+            "examples": [
+              "User: /toen → Bot: Direction set: always translate into English."
+            ],
+            "notes": "Overrides language detection until changed."
+          },
+          {
+            "command": "/toid",
+            "description": "Forces translation target to Indonesian for the current chat.",
+            "usage": "/toid",
+            "examples": [
+              "User: /toid → Bot: Direction set: always translate into Indonesian."
+            ],
+            "notes": "Overrides language detection until changed."
+          },
+          {
+            "command": "/mode",
+            "description": "Shows current chat settings (auto on/off, direction mode).",
+            "usage": "/mode",
+            "examples": [
+              "User: /mode → Bot: Auto-translate: ON, Direction: auto"
+            ],
+            "notes": "If MONGODB_URI is missing, the bot will say settings are not persisted."
+          }
+        ],
+        "aiMessages": [
+          {
+            "role": "user",
+            "content": "build a simple translator bot for indonesia and english ,whenever the bot got messages it will automatically translate in reverse of the input"
+          },
+          {
+            "role": "assistant",
+            "content": "Created a new Telegram-only grammY project for auto translating between Indonesian and English. Implemented /start, /help, /auto_on, /auto_off, /toen, /toid, /mode, group mention/reply rules, per-user soft rate limiting, MongoDB-backed per-chat settings with safe upserts, and CookMyBots AI Gateway translation via src/lib/ai.js + src/services/translate.js. Added DOCS.md and updated .env.sample.\n\nFiles touched (24): .env.sample, DOCS.md, README.md, package.json, project.json, src/bot.js…\nValidation: ✅ project passes syntax/basic checks after this edit."
+          }
+        ],
+        "createdBy": "",
+        "source": "",
+        "description": "",
+        "planMarkdown": "Bot: Indonesia–English Auto-Translate Telegram Bot (grammY, Node.js ESM)\n\nSummary:\nA production-ready Telegram bot that automatically translates every incoming user message between Indonesian and English, reversing the translation direction based on detected input language. The bot works in private chats and can optionally support group chats with configurable behavior.\n\nThe plan focuses on a single-process Node.js service using grammY, MongoDB for persistence, and a modular architecture that supports rate limiting, abuse prevention, observability, and safe fallbacks when language detection is uncertain. The bot is designed to be simple for users (send text, get translation) while still being reliable and maintainable in production.\n\nProduct goals:\nPrimary goal: Provide instant bidirectional translation between Indonesian and English. If a user sends Indonesian, the bot replies in English; if a user sends English, the bot replies in Indonesian.\n\nUser experience goals:\n1) Zero-configuration default: Users can start translating immediately after /start.\n2) Predictable replies: The bot responds to every supported message with a single translated response.\n3) Fast and reliable: Low latency, with sensible fallbacks if detection or translation fails.\n4) Clear behavior in edge cases: If language detection is ambiguous or text contains mixed languages, the bot explains what it did and offers a way to override.\n\nScope decisions:\n1) Translate text content. Optionally include captions on photos/documents if present.\n2) Do not attempt full OCR or speech-to-text as a baseline requirement.\n3) Default translation direction is automatic, but users can lock direction (ID->EN or EN->ID) per chat.\n\nSuccess criteria:\n1) High accuracy for typical conversational text.\n2) Minimal operational burden: stable single service, straightforward monitoring, and controlled costs.\n3) Safe handling of spam and large messages while staying within Telegram limits.\n\nHigh-level architecture:\nSingle-process Node.js service (ESM) using grammY. The bot receives updates via either webhook or long polling. For production readiness, webhook is preferred if the environment supports inbound HTTP, otherwise long polling remains acceptable with careful error handling.\n\nCore modules (separation of concerns):\n1) Update handling layer: grammY bot instance, middleware chain, command router, message handlers.\n2) Session and settings module: per-chat settings (auto vs locked direction, group behavior, verbosity), with MongoDB persistence.\n3) Language detection module: lightweight detection tuned for Indonesian vs English, using a deterministic heuristic first and an external detector second (optional) to reduce cost/latency. Must return confidence score and a reason.\n4) Translation provider module: abstraction over a translation API/service with retries, timeouts, circuit breaker behavior, and usage accounting.\n5) Policy and safety module: rate limiting per user/chat, message size limits, content filtering for unsupported inputs, and group privacy controls.\n6) Observability module: structured logging, metrics counters (translations, errors, latency), and correlation IDs per update.\n\nRequest lifecycle:\n1) Receive update.\n2) Identify chat/user, load settings and minimal user profile.\n3) If command: execute command.\n4) If text/caption: run policy checks, detect language, decide direction, translate, respond.\n5) Persist audit record (optional) and update usage counters.\n\nError handling principles:\n1) Fail fast for unsupported message types with a short guidance reply.\n2) For transient translation failures: retry once with backoff; if still failing, respond with a human-readable error.\n3) For language detection ambiguity: ask the user to choose direction or provide a one-tap setting command.\n\nGroup chat behavior (recommended defaults):\n1) Only translate when the bot is directly replied to, or when a message starts with a trigger (for example, “tr:” or “translate ”). This prevents spam in groups.\n2) Allow admins to enable always-on translation per group via a setting command.\n\nDeployment shape:\n1) One Node.js server process.\n2) MongoDB for persistence.\n3) Optional object storage or simple filesystem storage only if you later add features like saving translation history exports or logs; not required for baseline translator.\n\nData model:\nMongoDB collections (minimal, production-friendly):\n\n1) chats\nFields:\n1) chatId (number/string)\n2) type (private/group/supergroup)\n3) createdAt, updatedAt\n4) settings:\n   1) mode: auto | locked\n   2) lockedDirection: idtoen | entoid (only if mode=locked)\n   3) groupTrigger: replyonly | prefixonly | always\n   4) showDetectedLanguage: boolean\n   5) showConfidenceWarnings: boolean\n   6) maxCharsPerMessage: number\n\n2) users\nFields:\n1) userId\n2) firstSeenAt, lastSeenAt\n3) preferredMode (optional override for private chats)\n4) usage:\n   1) dayKey (YYYY-MM-DD)\n   2) translatedCharsToday\n   3) requestsToday\n\n3) translationlogs (optional, can be disabled for privacy)\nPurpose: debugging and quality improvements, not required for core functionality.\nFields:\n1) timestamp\n2) chatId, userId\n3) inputLength\n4) detectedSourceLang (id/en/unknown)\n5) targetLang\n6) confidence\n7) providerLatencyMs\n8) status (success/error)\n9) errorCode (if any)\n\nPrivacy-first approach:\n1) Do not store raw message text by default.\n2) If logs are enabled, store only minimal metadata unless the user/admin explicitly opts in to diagnostics.\n3) Implement retention: auto-delete logs older than N days.\n\nIndexes:\n1) chats.chatId unique\n2) users.userId unique\n3) translationlogs.timestamp TTL index (if using retention)\n\nIn-memory maps:\n1) Short-lived caches for chat settings and user usage counters to reduce DB reads, with periodic sync to MongoDB.\n2) In-flight request map per chat/user to avoid overlapping translations when users spam messages quickly (optional).\n\nKey flows:\n1) Start and onboarding (/start)\n1) User sends /start.\n2) Bot replies with a brief description: send any text in Indonesian or English to translate.\n3) Bot shows current mode (auto) and quick commands to lock direction.\n4) Bot initializes user and chat records in MongoDB.\n\n2) Auto translation flow (private chat)\n1) User sends a text message.\n2) Policy checks: length, rate limits.\n3) Detect language: classify as Indonesian, English, or unknown with confidence.\n4) Decide target language:\n   1) If detected Indonesian: target English.\n   2) If detected English: target Indonesian.\n   3) If unknown or low confidence: either ask user to choose, or default to the last successful direction in this chat with a warning.\n5) Translate via provider module with timeout and retry.\n6) Reply with translated text.\n7) Optionally append a small note when detection was uncertain (configurable).\n\n3) Locked direction flow\n1) User runs /mode locked or /id2en or /en2id.\n2) Bot updates chat settings.\n3) Subsequent messages translate according to locked direction without detection.\n4) /mode auto returns to detection-based behavior.\n\n4) Group chat flow\nDefault behavior: translate only when explicitly invoked.\n1) If groupTrigger=replyonly:\n   1) Bot checks if the message is a reply to a bot message or mentions the bot.\n   2) If yes, translate; if no, ignore.\n2) If groupTrigger=prefixonly:\n   1) Bot checks for a prefix like “tr:” and strips it before translating.\n3) If groupTrigger=always:\n   1) Bot translates all messages (not recommended by default).\nAdmin commands configure this per group.\n\n5) Rate limiting and abuse prevention\n1) Per-user: cap requests per minute and characters per minute.\n2) Per-chat: cap overall throughput in groups.\n3) On limit hit: respond with a short message indicating cooldown.\n4) Track usage in MongoDB with daily counters.\n\n6) Edge cases\n1) Very short messages (for example, “ok”, “ya”): treat as ambiguous. Use chat history direction heuristic or ask user for direction.\n2) Mixed-language messages: choose dominant language by heuristic, or offer a quick override command.\n3) Non-text messages: if caption exists, translate caption; otherwise reply with guidance.\n4) Provider failure: return a friendly error, encourage retry, and do not spam retries.\n\n7) Observability and operations flow\n1) Each update gets a correlation ID.\n2) Log key events: detection result, chosen direction, provider latency, error codes.\n3) Periodic health checks: database connectivity, provider reachability.\n4) Alerting is out of scope for this plan, but logs and metrics must be sufficient to add it later without architectural changes.\n\nTech stack:\nRuntime and language:\n1) Node.js (ESM) single process.\n2) grammY for Telegram bot API integration.\n\nPersistence:\n1) MongoDB for chat/user settings, usage counters, and optional translation logs.\n2) Small in-memory caches/maps for hot settings and rate-limiting windows, with MongoDB as source of truth.\n\nExternal services:\n1) Translation API/provider accessed over HTTPS, wrapped behind an internal provider abstraction to allow swapping providers without touching bot logic.\n2) Optional lightweight language detection library locally; otherwise rely on provider detection if supported.\n\nStorage:\n1) No file storage required for baseline.\n2) If later needed (exports, diagnostics attachments), use object storage or simple filesystem storage.\n\nDeployment:\n1) A Node.js server in the cloud.\n2) Telegram token loaded from environment variable TELEGRAMBOTTOKEN.\n3) Configuration via environment variables (MongoDB connection string, provider keys, rate limit thresholds, logging level).\n\nOperational best practices:\n1) Graceful shutdown to finish in-flight translations and close MongoDB connections.\n2) Timeouts and retries for all outbound HTTP calls.\n3) Input validation and strict limits to prevent memory bloat and provider overuse.\n\nNon-functional requirements:\nReliability:\n1) Use timeouts for translation requests and limit concurrency.\n2) Implement a simple circuit breaker behavior: if provider failures spike, temporarily fail fast with a clear error to avoid cascading timeouts.\n3) Ensure idempotent handling where possible; avoid duplicate replies by tracking last processed update IDs in memory and/or MongoDB if webhook retries are frequent.\n\nPerformance:\n1) Keep detection lightweight; avoid calling the translation provider twice.\n2) Cache chat settings and user limits briefly in memory.\n3) Enforce message size limits and truncate safely with a note when needed.\n\nSecurity:\n1) Store secrets only in environment variables.\n2) Validate incoming updates (webhook secret path or similar technique) if using webhooks.\n3) Avoid logging message text by default.\n4) Enforce anti-spam limits and ignore obvious automation loops.\n\nPrivacy and compliance:\n1) Provide /privacy to explain what is stored.\n2) Offer /optoutlogs to disable optional diagnostics logging.\n3) Provide /delete to remove user data (user record and chat settings if private chat).\n\nMaintainability:\n1) Clear module boundaries: Telegram handling vs detection vs translation vs persistence.\n2) Provider abstraction for translation.\n3) Centralized configuration and consistent error taxonomy.\n\nTest strategy (high-level):\n1) Unit tests for detection and direction decision.\n2) Integration tests for translation provider wrapper with mocked HTTP.\n3) End-to-end tests using Telegram update fixtures to validate grammY middleware routing.\n\nBot commands:\n• /start — Introduces the bot and starts auto-translation in the current chat. (usage: /start) [core]\n• /help — Shows usage instructions, examples, and common troubleshooting. (usage: /help) [core]\n• /mode — Sets translation mode: auto (detect) or locked (fixed direction). (usage: /mode auto | /mode locked) [settings]\n• /id2en — Locks translation direction to Indonesian -> English for this chat. (usage: /id2en) [settings]\n• /en2id — Locks translation direction to English -> Indonesian for this chat. (usage: /en2id) [settings]\n• /auto — Shortcut to return to automatic language detection mode. (usage: /auto) [settings]\n• /settings — Displays current chat settings and how to change them. (usage: /settings) [settings]\n• /groupmode — Configures how the bot behaves in groups (admins only). (usage: /groupmode replyonly | /groupmode prefixonly | /groupmode always) [admin]\n• /privacy — Explains what data is stored and for how long. (usage: /privacy) [trust]\n• /delete — Deletes stored user data for the requesting user (and private chat settings). (usage: /delete) [trust]\n• /optoutlogs — Disables optional diagnostics logging for the current chat/user. (usage: /optoutlogs) [trust]\n• /status — Shows basic service status and current rate limit counters for the user (optional). (usage: /status) [ops]\n",
+        "planSections": {
+          "productGoals": "Primary goal: Provide instant bidirectional translation between Indonesian and English. If a user sends Indonesian, the bot replies in English; if a user sends English, the bot replies in Indonesian.\n\nUser experience goals:\n1) Zero-configuration default: Users can start translating immediately after /start.\n2) Predictable replies: The bot responds to every supported message with a single translated response.\n3) Fast and reliable: Low latency, with sensible fallbacks if detection or translation fails.\n4) Clear behavior in edge cases: If language detection is ambiguous or text contains mixed languages, the bot explains what it did and offers a way to override.\n\nScope decisions:\n1) Translate text content. Optionally include captions on photos/documents if present.\n2) Do not attempt full OCR or speech-to-text as a baseline requirement.\n3) Default translation direction is automatic, but users can lock direction (ID->EN or EN->ID) per chat.\n\nSuccess criteria:\n1) High accuracy for typical conversational text.\n2) Minimal operational burden: stable single service, straightforward monitoring, and controlled costs.\n3) Safe handling of spam and large messages while staying within Telegram limits.",
+          "highLevelArchitecture": "Single-process Node.js service (ESM) using grammY. The bot receives updates via either webhook or long polling. For production readiness, webhook is preferred if the environment supports inbound HTTP, otherwise long polling remains acceptable with careful error handling.\n\nCore modules (separation of concerns):\n1) Update handling layer: grammY bot instance, middleware chain, command router, message handlers.\n2) Session and settings module: per-chat settings (auto vs locked direction, group behavior, verbosity), with MongoDB persistence.\n3) Language detection module: lightweight detection tuned for Indonesian vs English, using a deterministic heuristic first and an external detector second (optional) to reduce cost/latency. Must return confidence score and a reason.\n4) Translation provider module: abstraction over a translation API/service with retries, timeouts, circuit breaker behavior, and usage accounting.\n5) Policy and safety module: rate limiting per user/chat, message size limits, content filtering for unsupported inputs, and group privacy controls.\n6) Observability module: structured logging, metrics counters (translations, errors, latency), and correlation IDs per update.\n\nRequest lifecycle:\n1) Receive update.\n2) Identify chat/user, load settings and minimal user profile.\n3) If command: execute command.\n4) If text/caption: run policy checks, detect language, decide direction, translate, respond.\n5) Persist audit record (optional) and update usage counters.\n\nError handling principles:\n1) Fail fast for unsupported message types with a short guidance reply.\n2) For transient translation failures: retry once with backoff; if still failing, respond with a human-readable error.\n3) For language detection ambiguity: ask the user to choose direction or provide a one-tap setting command.\n\nGroup chat behavior (recommended defaults):\n1) Only translate when the bot is directly replied to, or when a message starts with a trigger (for example, “tr:” or “translate ”). This prevents spam in groups.\n2) Allow admins to enable always-on translation per group via a setting command.\n\nDeployment shape:\n1) One Node.js server process.\n2) MongoDB for persistence.\n3) Optional object storage or simple filesystem storage only if you later add features like saving translation history exports or logs; not required for baseline translator.",
+          "dataModel": "MongoDB collections (minimal, production-friendly):\n\n1) chats\nFields:\n1) chatId (number/string)\n2) type (private/group/supergroup)\n3) createdAt, updatedAt\n4) settings:\n   1) mode: auto | locked\n   2) lockedDirection: idtoen | entoid (only if mode=locked)\n   3) groupTrigger: replyonly | prefixonly | always\n   4) showDetectedLanguage: boolean\n   5) showConfidenceWarnings: boolean\n   6) maxCharsPerMessage: number\n\n2) users\nFields:\n1) userId\n2) firstSeenAt, lastSeenAt\n3) preferredMode (optional override for private chats)\n4) usage:\n   1) dayKey (YYYY-MM-DD)\n   2) translatedCharsToday\n   3) requestsToday\n\n3) translationlogs (optional, can be disabled for privacy)\nPurpose: debugging and quality improvements, not required for core functionality.\nFields:\n1) timestamp\n2) chatId, userId\n3) inputLength\n4) detectedSourceLang (id/en/unknown)\n5) targetLang\n6) confidence\n7) providerLatencyMs\n8) status (success/error)\n9) errorCode (if any)\n\nPrivacy-first approach:\n1) Do not store raw message text by default.\n2) If logs are enabled, store only minimal metadata unless the user/admin explicitly opts in to diagnostics.\n3) Implement retention: auto-delete logs older than N days.\n\nIndexes:\n1) chats.chatId unique\n2) users.userId unique\n3) translationlogs.timestamp TTL index (if using retention)\n\nIn-memory maps:\n1) Short-lived caches for chat settings and user usage counters to reduce DB reads, with periodic sync to MongoDB.\n2) In-flight request map per chat/user to avoid overlapping translations when users spam messages quickly (optional).",
+          "keyFlows": "1) Start and onboarding (/start)\n1) User sends /start.\n2) Bot replies with a brief description: send any text in Indonesian or English to translate.\n3) Bot shows current mode (auto) and quick commands to lock direction.\n4) Bot initializes user and chat records in MongoDB.\n\n2) Auto translation flow (private chat)\n1) User sends a text message.\n2) Policy checks: length, rate limits.\n3) Detect language: classify as Indonesian, English, or unknown with confidence.\n4) Decide target language:\n   1) If detected Indonesian: target English.\n   2) If detected English: target Indonesian.\n   3) If unknown or low confidence: either ask user to choose, or default to the last successful direction in this chat with a warning.\n5) Translate via provider module with timeout and retry.\n6) Reply with translated text.\n7) Optionally append a small note when detection was uncertain (configurable).\n\n3) Locked direction flow\n1) User runs /mode locked or /id2en or /en2id.\n2) Bot updates chat settings.\n3) Subsequent messages translate according to locked direction without detection.\n4) /mode auto returns to detection-based behavior.\n\n4) Group chat flow\nDefault behavior: translate only when explicitly invoked.\n1) If groupTrigger=replyonly:\n   1) Bot checks if the message is a reply to a bot message or mentions the bot.\n   2) If yes, translate; if no, ignore.\n2) If groupTrigger=prefixonly:\n   1) Bot checks for a prefix like “tr:” and strips it before translating.\n3) If groupTrigger=always:\n   1) Bot translates all messages (not recommended by default).\nAdmin commands configure this per group.\n\n5) Rate limiting and abuse prevention\n1) Per-user: cap requests per minute and characters per minute.\n2) Per-chat: cap overall throughput in groups.\n3) On limit hit: respond with a short message indicating cooldown.\n4) Track usage in MongoDB with daily counters.\n\n6) Edge cases\n1) Very short messages (for example, “ok”, “ya”): treat as ambiguous. Use chat history direction heuristic or ask user for direction.\n2) Mixed-language messages: choose dominant language by heuristic, or offer a quick override command.\n3) Non-text messages: if caption exists, translate caption; otherwise reply with guidance.\n4) Provider failure: return a friendly error, encourage retry, and do not spam retries.\n\n7) Observability and operations flow\n1) Each update gets a correlation ID.\n2) Log key events: detection result, chosen direction, provider latency, error codes.\n3) Periodic health checks: database connectivity, provider reachability.\n4) Alerting is out of scope for this plan, but logs and metrics must be sufficient to add it later without architectural changes.",
+          "techStack": "Runtime and language:\n1) Node.js (ESM) single process.\n2) grammY for Telegram bot API integration.\n\nPersistence:\n1) MongoDB for chat/user settings, usage counters, and optional translation logs.\n2) Small in-memory caches/maps for hot settings and rate-limiting windows, with MongoDB as source of truth.\n\nExternal services:\n1) Translation API/provider accessed over HTTPS, wrapped behind an internal provider abstraction to allow swapping providers without touching bot logic.\n2) Optional lightweight language detection library locally; otherwise rely on provider detection if supported.\n\nStorage:\n1) No file storage required for baseline.\n2) If later needed (exports, diagnostics attachments), use object storage or simple filesystem storage.\n\nDeployment:\n1) A Node.js server in the cloud.\n2) Telegram token loaded from environment variable TELEGRAMBOTTOKEN.\n3) Configuration via environment variables (MongoDB connection string, provider keys, rate limit thresholds, logging level).\n\nOperational best practices:\n1) Graceful shutdown to finish in-flight translations and close MongoDB connections.\n2) Timeouts and retries for all outbound HTTP calls.\n3) Input validation and strict limits to prevent memory bloat and provider overuse.",
+          "nonFunctional": "Reliability:\n1) Use timeouts for translation requests and limit concurrency.\n2) Implement a simple circuit breaker behavior: if provider failures spike, temporarily fail fast with a clear error to avoid cascading timeouts.\n3) Ensure idempotent handling where possible; avoid duplicate replies by tracking last processed update IDs in memory and/or MongoDB if webhook retries are frequent.\n\nPerformance:\n1) Keep detection lightweight; avoid calling the translation provider twice.\n2) Cache chat settings and user limits briefly in memory.\n3) Enforce message size limits and truncate safely with a note when needed.\n\nSecurity:\n1) Store secrets only in environment variables.\n2) Validate incoming updates (webhook secret path or similar technique) if using webhooks.\n3) Avoid logging message text by default.\n4) Enforce anti-spam limits and ignore obvious automation loops.\n\nPrivacy and compliance:\n1) Provide /privacy to explain what is stored.\n2) Offer /optoutlogs to disable optional diagnostics logging.\n3) Provide /delete to remove user data (user record and chat settings if private chat).\n\nMaintainability:\n1) Clear module boundaries: Telegram handling vs detection vs translation vs persistence.\n2) Provider abstraction for translation.\n3) Centralized configuration and consistent error taxonomy.\n\nTest strategy (high-level):\n1) Unit tests for detection and direction decision.\n2) Integration tests for translation provider wrapper with mocked HTTP.\n3) End-to-end tests using Telegram update fixtures to validate grammY middleware routing."
+        },
+        "balanceCentsRemaining": 10,
+        "billing": {
+          "ok": true,
+          "charged": 35,
+          "remaining": 10,
+          "chargedCents": 35,
+          "remainingCents": 10,
+          "currency": "USD",
+          "baseUsd": 0.17371799999999998,
+          "markupUsd": 0.17371799999999998,
+          "platformFeeUsd": 0,
+          "totalUsd": 0.34743599999999997
+        },
+        "title": "Indonesia–English Auto-Trans"
+      }
+    }
+  },
+  "runStatus": {
+    "phase": "done",
+    "stage": "cold_start",
+    "runId": "45e0bc51-dba5-4355-9455-014bf5adcab4:mm8fwgy6:6pqimg",
+    "lastUserMessage": "build a simple translator bot for indonesia and english ,whenever the bot got messages it will automatically translate in reverse of the input",
+    "startedAt": "2026-03-02T00:27:40.132Z",
+    "updatedAt": "2026-03-02T00:29:44.731Z",
+    "message": "GitHub auto-push skipped (no repo linked or GitHub not connected in session).",
+    "commands": [
+      {
+        "name": "auto_off",
+        "file": "src/commands/auto_off.js"
+      },
+      {
+        "name": "auto_on",
+        "file": "src/commands/auto_on.js"
+      },
+      {
+        "name": "help",
+        "file": "src/commands/help.js"
+      },
+      {
+        "name": "mode",
+        "file": "src/commands/mode.js"
+      },
+      {
+        "name": "start",
+        "file": "src/commands/start.js"
+      },
+      {
+        "name": "toen",
+        "file": "src/commands/toen.js"
+      },
+      {
+        "name": "toid",
+        "file": "src/commands/toid.js"
+      }
+    ],
+    "ok": true,
+    "state": {
+      "projectId": "45e0bc51-dba5-4355-9455-014bf5adcab4",
+      "fileStructure": {
+        ".env.sample": {
+          "type": "file",
+          "content": "# Telegram\nTELEGRAM_BOT_TOKEN=\n\n# CookMyBots AI Gateway (REQUIRED)\n# COOKMYBOTS_AI_ENDPOINT is a BASE URL (do NOT include /chat)\nCOOKMYBOTS_AI_ENDPOINT=https://api.cookmybots.com/api/ai\nCOOKMYBOTS_AI_KEY=\n\n# Database (optional but recommended for persistent settings)\nMONGODB_URI=\n\n# Optional controls\nAI_TIMEOUT_MS=600000\nAI_MAX_RETRIES=2\nCONCURRENCY=20\n\n# Logging (optional)\nLOG_LEVEL=info\n"
+        },
+        "CHANGELOG.md": {
+          "type": "file",
+          "content": "# Changelog\n\nAll notable changes to this bot project are recorded here.\n\n## 2026-03-02 00:29:44. UTC\n- Request: build a simple translator bot for indonesia and english ,whenever the bot got messages it will automatically translate in reverse of the input\n- Summary: Created a new Telegram-only grammY project for auto translating between Indonesian and English. Implemented /start, /help, /auto_on, /auto_off, /toen, /toid, /mode, group mention/reply rules, per-user soft rate limiting…\n- Files: .env.sample, DOCS.md, README.md, package.json, project.json, src/bot.js, src/commands/auto_off.js, src/commands/auto_on.js, src/commands/help.js, src/commands/loader.js, src/commands/mode.js, src/commands/start.js, src/commands/toen.js, src/commands/toid.js (…\n\n"
+        },
+        "DOCS.md": {
+          "type": "file",
+          "content": "What this bot does\nThis Telegram bot automatically translates messages between Indonesian (id) and English (en).\n\nDefault behavior\nIn a new chat, auto-translate is ON and direction is AUTO.\nThat means:\n1) Indonesian input is translated to English.\n2) English input is translated to Indonesian.\n3) If detection is uncertain, it defaults to translating into English.\n\nPrivate vs group chats\n1) Private chats: the bot replies to every non-command text message (unless auto-translate is turned off).\n2) Group chats: the bot replies only when you reply to a bot message OR mention the bot.\n\nCommands\n/start\nWhat it does: Welcome message and quick examples.\nUsage: /start\n\n/help\nWhat it does: Detailed usage and limitations.\nUsage: /help\n\n/auto_on\nWhat it does: Enables auto-translate for the current chat.\nUsage: /auto_on\n\n/auto_off\nWhat it does: Disables auto-translate for the current chat.\nUsage: /auto_off\n\n/toen\nWhat it does: Forces translation target to English for the current chat.\nUsage: /toen\n\n/toid\nWhat it does: Forces translation target to Indonesian for the current chat.\nUsage: /toid\n\n/mode\nWhat it does: Shows current settings for the chat.\nUsage: /mode\n\nEnvironment variables\nTELEGRAM_BOT_TOKEN\nRequired. Telegram bot token.\n\nCOOKMYBOTS_AI_ENDPOINT\nRequired. Base URL for CookMyBots AI Gateway.\nExample format: https://api.cookmybots.com/api/ai\n\nCOOKMYBOTS_AI_KEY\nRequired. API key for CookMyBots AI Gateway.\n\nMONGODB_URI\nOptional but recommended. MongoDB connection string used to persist per-chat settings.\n\nLOG_LEVEL\nOptional. Default is info.\n\nRunning locally\n1) npm install\n2) Copy .env.sample to .env and fill values\n3) npm run dev\n"
+        },
+        "README.md": {
+          "type": "file",
+          "content": "This is a Telegram translation bot built with grammY (Node.js ES modules).\n\nIt automatically translates between Indonesian (id) and English (en).\nIf you send Indonesian, it replies in English. If you send English, it replies in Indonesian.\n\nIn group chats, the bot replies only when:\n1) You reply to a bot message, or\n2) You mention the bot (for example @YourBotUsername)\n\nSetup\n1) Install deps\nnpm install\n\n2) Create a .env file (or set Render env vars) based on .env.sample\n\nRequired\n1) TELEGRAM_BOT_TOKEN\n2) COOKMYBOTS_AI_ENDPOINT\n3) COOKMYBOTS_AI_KEY\n\nOptional but recommended\n1) MONGODB_URI (persists per-chat settings across restarts)\n\nRun locally\nnpm run dev\n\nRun in production\nnpm start\n\nCommands\n/start\nShows a welcome message and quick examples.\n\n/help\nShows detailed help.\n\n/auto_on\nEnable auto-translate for the current chat.\n\n/auto_off\nDisable auto-translate for the current chat.\n\n/toen\nForce translations to English for this chat.\n\n/toid\nForce translations to Indonesian for this chat.\n\n/mode\nShow current chat settings.\n\nNotes\n1) Only text messages are translated.\n2) If MONGODB_URI is missing, the bot still works but settings reset on restart.\n3) The bot uses CookMyBots AI Gateway only (no direct OpenAI calls).\n"
+        },
+        "package.json": {
+          "type": "file",
+          "content": "{\n  \"name\": \"cookmybots-telegram-bot\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"engines\": {\n    \"node\": \">=18\"\n  },\n  \"scripts\": {\n    \"install:root\": \"bash -lc \\\"set -e; if [ -f package-lock.json ]; then npm ci; else npm install; fi\\\"\",\n    \"build\": \"npm run install:root && echo build\",\n    \"start\": \"node src/index.js\",\n    \"dev\": \"node --watch src/index.js\"\n  },\n  \"dependencies\": {\n    \"dotenv\": \"^16.4.5\",\n    \"grammy\": \"^1.20.0\",\n    \"mongodb\": \"^6.10.0\",\n    \"@grammyjs/runner\": \"^2.0.3\"\n  },\n  \"devDependencies\": {}\n}\n"
+        },
+        "src": {
+          "type": "dir",
+          "children": {
+            "bot.js": {
+              "type": "file",
+              "content": "const log = {\n  info:  (...a) => console.log(...a),\n  warn:  (...a) => console.warn(...a),\n  error: (...a) => console.error(...a),\n};\n\nimport { Bot } from \"grammy\";\nimport { cfg } from \"./lib/config.js\";\n\nimport { safeErr } from \"./lib/safeErr.js\";\nimport { rateLimitMiddleware } from \"./middleware/rateLimit.js\";\nimport { getChatSettings } from \"./services/chatSettings.js\";\nimport { translateText } from \"./services/translate.js\";\nimport { buildBotProfile } from \"./lib/botProfile.js\";\n\nfunction isGroupChat(chat) {\n  const t = chat?.type || \"private\";\n  return t === \"group\" || t === \"supergroup\";\n}\n\nfunction mentionedByEntity({ text, entities, botUsername }) {\n  if (!botUsername) return false;\n  const raw = String(text || \"\");\n  const ents = Array.isArray(entities) ? entities : [];\n\n  return ents.some((e) => {\n    if (!e || e.type !== \"mention\") return false;\n    const s = raw.slice(e.offset, e.offset + e.length);\n    return s.toLowerCase() === (\"@\" + String(botUsername).toLowerCase());\n  });\n}\n\nfunction stripMention(text, botUsername) {\n  if (!botUsername) return String(text || \"\").trim();\n  const raw = String(text || \"\");\n  const re = new RegExp(\"@\" + String(botUsername) + \"\\\\b\", \"ig\");\n  return raw.replace(re, \"\").trim();\n}\n\nfunction isReplyToBot(ctx, botUsername) {\n  const replyTo = ctx.message?.reply_to_message;\n  if (!replyTo?.from?.is_bot) return false;\n  if (!botUsername) return false;\n  const u = String(replyTo.from.username || \"\").toLowerCase();\n  return u === String(botUsername).toLowerCase();\n}\n\nexport function createBot(token) {\n  const bot = new Bot(token);\n\n  bot.use(rateLimitMiddleware({ limit: 5, windowMs: 10_000 }));\n\n  // Commands must be registered by src/commands/loader.js before this handler.\n  bot.on(\"message\", async (ctx, next) => {\n    // Non-text message handling\n    const hasText = typeof ctx.message?.text === \"string\";\n\n    // Ignore commands here\n    if (hasText && ctx.message.text.startsWith(\"/\")) return next();\n\n    // In groups: only respond when mentioned or replied-to\n    const botUsername = ctx.me?.username || bot.botInfo?.username || \"\";\n    if (isGroupChat(ctx.chat)) {\n      const isMentioned = mentionedByEntity({\n        text: ctx.message?.text,\n        entities: ctx.message?.entities,\n        botUsername\n      });\n\n      const replied = isReplyToBot(ctx, botUsername);\n      if (!isMentioned && !replied) return;\n    }\n\n    if (!hasText) {\n      try {\n        await ctx.reply(\"Send text to translate.\");\n      } catch {}\n      return;\n    }\n\n    const chatId = ctx.chat?.id;\n    if (!chatId) return;\n\n    const { settings } = await getChatSettings(chatId);\n    if (!settings.autoTranslate) return;\n\n    const cleaned = stripMention(ctx.message.text, botUsername);\n    if (!cleaned) return;\n\n    const botProfile = buildBotProfile({ botUsername });\n\n    try {\n      const result = await translateText({\n        botProfile,\n        text: cleaned,\n        directionMode: settings.directionMode\n      });\n\n      if (!result.ok) {\n        await ctx.reply(\"Sorry, I couldn't translate that right now.\");\n        return;\n      }\n\n      const out = result.label + \"\\n\" + result.translatedText;\n      await ctx.reply(out);\n    } catch (e) {\n      log.error(\"[translate] handler failed\", { err: safeErr(e) });\n      try {\n        await ctx.reply(\"Sorry, something went wrong.\");\n      } catch {}\n    }\n  });\n\n  return bot;\n}\n"
+            },
+            "commands": {
+              "type": "dir",
+              "children": {
+                "auto_off.js": {
+                  "type": "file",
+                  "content": "import { updateChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"auto_off\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const r = await updateChatSettings(chatId, { autoTranslate: false });\n    if (!r.ok) return ctx.reply(\"Auto-translate is OFF (temporary). Add MONGODB_URI to persist settings.\");\n\n    await ctx.reply(\"Auto-translate is OFF for this chat.\");\n  });\n}\n"
+                },
+                "auto_on.js": {
+                  "type": "file",
+                  "content": "import { updateChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"auto_on\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const r = await updateChatSettings(chatId, { autoTranslate: true });\n    if (!r.ok) return ctx.reply(\"Auto-translate is ON (temporary). Add MONGODB_URI to persist settings.\");\n\n    await ctx.reply(\"Auto-translate is ON for this chat.\");\n  });\n}\n"
+                },
+                "help.js": {
+                  "type": "file",
+                  "content": "export default function register(bot) {\n  bot.command(\"help\", async (ctx) => {\n    const txt =\n      \"How to use:\\n\" +\n      \"Send any text message and I'll translate it between Indonesian and English.\\n\\n\" +\n      \"Commands:\\n\" +\n      \"/start - Welcome and quick examples\\n\" +\n      \"/help - This help\\n\" +\n      \"/auto_on - Enable auto-translate for this chat\\n\" +\n      \"/auto_off - Disable auto-translate for this chat\\n\" +\n      \"/toen - Force translating into English\\n\" +\n      \"/toid - Force translating into Indonesian\\n\" +\n      \"/mode - Show current settings\\n\\n\" +\n      \"Notes / limitations:\\n\" +\n      \"1) Only text messages are translated.\\n\" +\n      \"2) In groups, I respond only if you reply to me or mention me (to reduce noise).\\n\" +\n      \"3) If language detection is uncertain, I default to translating into English.\";\n\n    await ctx.reply(txt);\n  });\n}\n"
+                },
+                "loader.js": {
+                  "type": "file",
+                  "content": "import fs from \"node:fs\";\nimport path from \"node:path\";\nimport { fileURLToPath, pathToFileURL } from \"node:url\";\n\nexport async function registerCommands(bot) {\n  const dir = path.dirname(fileURLToPath(import.meta.url));\n\n  const commandFiles = fs\n    .readdirSync(dir)\n    .filter((file) => file.endsWith(\".js\") && file !== \"loader.js\" && !file.startsWith(\"_\"));\n\n  for (const file of commandFiles) {\n    const full = path.join(dir, file);\n    const mod = await import(pathToFileURL(full).href);\n\n    const handler = mod?.default || mod?.register;\n\n    if (typeof handler === \"function\") {\n      await handler(bot);\n    } else {\n      console.warn(\"[commands]\" + file + \" has no usable export; skipped.\");\n    }\n  }\n}\n"
+                },
+                "mode.js": {
+                  "type": "file",
+                  "content": "import { getChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"mode\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const { settings, persisted } = await getChatSettings(chatId);\n\n    const dir = settings.directionMode || \"auto\";\n    const auto = settings.autoTranslate ? \"ON\" : \"OFF\";\n\n    const txt =\n      \"Current chat settings:\\n\" +\n      \"Auto-translate: \" + auto + \"\\n\" +\n      \"Direction: \" + dir + \"\\n\" +\n      (persisted ? \"\" : \"\\nNote: Add MONGODB_URI to persist settings across restarts.\");\n\n    await ctx.reply(txt);\n  });\n}\n"
+                },
+                "start.js": {
+                  "type": "file",
+                  "content": "export default function register(bot) {\n  bot.command(\"start\", async (ctx) => {\n    const txt =\n      \"Hi! Send me a message in Indonesian or English and I'll translate it to the other language.\\n\\n\" +\n      \"Auto translate is ON by default.\\n\\n\" +\n      \"Examples:\\n\" +\n      \"1) kamu lagi di mana?  → I translate to English\\n\" +\n      \"2) where are you? → Aku terjemahkan ke Indonesia\\n\\n\" +\n      \"Commands: /help, /auto_off, /auto_on, /toen, /toid, /mode\";\n\n    await ctx.reply(txt);\n  });\n}\n"
+                },
+                "toen.js": {
+                  "type": "file",
+                  "content": "import { updateChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"toen\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const r = await updateChatSettings(chatId, { directionMode: \"toen\" });\n    if (!r.ok) return ctx.reply(\"Direction set to English (temporary). Add MONGODB_URI to persist settings.\");\n\n    await ctx.reply(\"Direction set: always translate into English.\");\n  });\n}\n"
+                },
+                "toid.js": {
+                  "type": "file",
+                  "content": "import { updateChatSettings } from \"../services/chatSettings.js\";\n\nexport default function register(bot) {\n  bot.command(\"toid\", async (ctx) => {\n    const chatId = ctx.chat?.id;\n    if (!chatId) return ctx.reply(\"Can't read chat id.\");\n\n    const r = await updateChatSettings(chatId, { directionMode: \"toid\" });\n    if (!r.ok) return ctx.reply(\"Direction set to Indonesian (temporary). Add MONGODB_URI to persist settings.\");\n\n    await ctx.reply(\"Direction set: always translate into Indonesian.\");\n  });\n}\n"
+                }
+              }
+            },
+            "index.js": {
+              "type": "file",
+              "content": "const log = {\n  info:  (...a) => console.log(...a),\n  warn:  (...a) => console.warn(...a),\n  error: (...a) => console.error(...a),\n};\n\nimport \"dotenv/config\";\n\nimport { run } from \"@grammyjs/runner\";\nimport { cfg } from \"./lib/config.js\";\n\nimport { safeErr } from \"./lib/safeErr.js\";\n\nprocess.on(\"unhandledRejection\", (r) => {\n  console.error(\"UnhandledRejection:\", r);\n  process.exit(1);\n});\n\nprocess.on(\"uncaughtException\", (e) => {\n  console.error(\"UncaughtException:\", e);\n  process.exit(1);\n});\n\nlet runner = null;\nlet restarting = false;\n\nfunction sleep(ms) {\n  return new Promise((r) => setTimeout(r, ms));\n}\n\nasync function startPolling(bot) {\n  await bot.api.deleteWebhook({ drop_pending_updates: true });\n\n  let backoff = 2000;\n  while (true) {\n    try {\n      log.info(\"[polling] start\", { concurrency: 1 });\n      runner = run(bot, { concurrency: 1 });\n      await runner.task();\n\n      // If runner.task resolves, treat it as a stop and restart.\n      throw new Error(\"Polling runner stopped\");\n    } catch (e) {\n      const msg = safeErr(e);\n\n      // 409 Conflict: another getUpdates is running\n      if (String(msg).includes(\"409\") || String(msg).toLowerCase().includes(\"conflict\")) {\n        log.warn(\"[polling] conflict; retrying\", { backoffMs: backoff, err: msg });\n      } else {\n        log.error(\"[polling] failed\", { backoffMs: backoff, err: msg });\n      }\n\n      try {\n        runner?.stop?.();\n      } catch {}\n      runner = null;\n\n      await sleep(backoff);\n      backoff = Math.min(20000, Math.round(backoff * 1.7));\n    }\n  }\n}\n\nasync function boot() {\n  log.info(\"[boot] start\", {\n    TELEGRAM_BOT_TOKEN_set: !!cfg.TELEGRAM_BOT_TOKEN,\n    COOKMYBOTS_AI_ENDPOINT_set: !!cfg.COOKMYBOTS_AI_ENDPOINT,\n    COOKMYBOTS_AI_KEY_set: !!cfg.COOKMYBOTS_AI_KEY,\n    MONGODB_URI_set: !!cfg.MONGODB_URI\n  });\n\n  if (!cfg.TELEGRAM_BOT_TOKEN) {\n    console.error(\"TELEGRAM_BOT_TOKEN is required. Add it to your env and redeploy.\");\n    process.exit(1);\n  }\n\n  if (!cfg.COOKMYBOTS_AI_ENDPOINT || !cfg.COOKMYBOTS_AI_KEY) {\n    console.error(\"COOKMYBOTS_AI_ENDPOINT and COOKMYBOTS_AI_KEY are required for translation.\");\n    process.exit(1);\n  }\n\n  const { createBot } = await import(\"./bot.js\");\n  const { registerCommands } = await import(\"./commands/loader.js\");\n\n  const bot = createBot(cfg.TELEGRAM_BOT_TOKEN);\n\n  bot.catch((err) => {\n    log.error(\"[bot] error\", { err: safeErr(err?.error || err) });\n  });\n\n  try {\n    await bot.init();\n  } catch (e) {\n    log.warn(\"[boot] bot.init failed (continuing)\", { err: safeErr(e) });\n  }\n\n  await registerCommands(bot);\n\n  try {\n    await bot.api.setMyCommands([\n      { command: \"start\", description: \"Welcome & examples\" },\n      { command: \"help\", description: \"How to use\" },\n      { command: \"auto_on\", description: \"Enable auto-translate\" },\n      { command: \"auto_off\", description: \"Disable auto-translate\" },\n      { command: \"toen\", description: \"Force translation to English\" },\n      { command: \"toid\", description: \"Force translation to Indonesian\" },\n      { command: \"mode\", description: \"Show current chat mode\" }\n    ]);\n  } catch (e) {\n    log.warn(\"[boot] setMyCommands failed\", { err: safeErr(e) });\n  }\n\n  // Memory log once per minute\n  setInterval(() => {\n    const m = process.memoryUsage();\n    console.log(\"[mem]\", {\n      rssMB: Math.round(m.rss / 1e6),\n      heapUsedMB: Math.round(m.heapUsed / 1e6)\n    });\n  }, 60_000).unref();\n\n  await startPolling(bot);\n}\n\nboot().catch(async (e) => {\n  log.error(\"[boot] failed\", { err: safeErr(e) });\n  if (!restarting) {\n    restarting = true;\n    await sleep(2000);\n    process.exit(1);\n  }\n});\n"
+            },
+            "lib": {
+              "type": "dir",
+              "children": {
+                "ai.js": {
+                  "type": "file",
+                  "content": "import { cfg } from \"./config.js\";\nimport { log } from \"./log.js\";\nimport { safeErr } from \"./safeErr.js\";\n\nfunction trimSlash(u) {\n  u = String(u || \"\");\n  while (u.endsWith(\"/\")) u = u.slice(0, -1);\n  return u;\n}\n\nfunction sleep(ms) {\n  return new Promise((r) => setTimeout(r, ms));\n}\n\nfunction withTimeout(ms) {\n  const ctrl = new AbortController();\n  const t = setTimeout(() => ctrl.abort(), ms);\n  return { ctrl, clear: () => clearTimeout(t) };\n}\n\nfunction getTimeoutMs(override) {\n  const v = Number(override || cfg.AI_TIMEOUT_MS || 600000);\n  return Number.isFinite(v) && v > 0 ? v : 600000;\n}\n\nfunction getRetries(override) {\n  const v = Number.isFinite(override) ? Number(override) : Number(cfg.AI_MAX_RETRIES || 2);\n  return Number.isFinite(v) && v >= 0 ? v : 2;\n}\n\nfunction isRetryableStatus(status) {\n  return status === 408 || status === 429 || (status >= 500 && status <= 599);\n}\n\nasync function safeReadJson(r) {\n  const text = await r.text();\n  let json = null;\n  try {\n    json = JSON.parse(text);\n  } catch {}\n  return { text, json };\n}\n\nexport async function aiChat({ messages, meta = {} }, opts = {}) {\n  const base = trimSlash(cfg.COOKMYBOTS_AI_ENDPOINT || \"\");\n  const key = String(cfg.COOKMYBOTS_AI_KEY || \"\");\n\n  if (!base || !key) {\n    const err = \"AI_NOT_CONFIGURED (missing COOKMYBOTS_AI_ENDPOINT/COOKMYBOTS_AI_KEY)\";\n    return { ok: false, status: 412, json: null, error: err };\n  }\n\n  const timeoutMs = getTimeoutMs(opts.timeoutMs);\n  const retries = getRetries(opts.retries);\n\n  const url = base + \"/chat\";\n\n  const started = Date.now();\n  log.info(\"[ai] chat start\", {\n    feature: \"translate\",\n    timeoutMs,\n    retries,\n    endpointSet: true,\n    keySet: true\n  });\n\n  let attempt = 0;\n  while (true) {\n    attempt++;\n    const { ctrl, clear } = withTimeout(timeoutMs);\n    try {\n      const r = await fetch(url, {\n        method: \"POST\",\n        headers: {\n          Authorization: \"Bearer \" + key,\n          \"Content-Type\": \"application/json\"\n        },\n        body: JSON.stringify({ messages, meta }),\n        signal: ctrl.signal\n      });\n\n      const { json, text } = await safeReadJson(r);\n\n      if (!r.ok) {\n        const msg = json?.error || json?.message || text || \"AI_ERROR\";\n        log.warn(\"[ai] chat fail\", { status: r.status, attempt, err: String(msg).slice(0, 300) });\n        if (attempt <= retries && isRetryableStatus(r.status)) {\n          await sleep(500 * attempt);\n          continue;\n        }\n        return { ok: false, status: r.status, json, error: String(msg) };\n      }\n\n      const latencyMs = Date.now() - started;\n      log.info(\"[ai] chat success\", { latencyMs, attempt });\n      return { ok: true, status: r.status, json, error: null };\n    } catch (e) {\n      const msg = safeErr(e);\n      const status = e?.name === \"AbortError\" ? 408 : 0;\n      log.warn(\"[ai] chat exception\", { status, attempt, err: String(msg).slice(0, 300) });\n      if (attempt <= retries && (status === 0 || status === 408)) {\n        await sleep(500 * attempt);\n        continue;\n      }\n      return { ok: false, status, json: null, error: String(msg) };\n    } finally {\n      clear();\n    }\n  }\n}\n"
+                },
+                "botProfile.js": {
+                  "type": "file",
+                  "content": "export function buildBotProfile({ botUsername } = {}) {\n  const name = botUsername ? (\"@\" + botUsername) : \"this bot\";\n\n  return [\n    \"Bot purpose: Automatically translate chat messages between Indonesian (id) and English (en).\",\n    \"Behavior: For normal text messages, detect if input is Indonesian or English, then translate to the opposite language unless a forced direction is set.\",\n    \"Public commands:\",\n    \"/start - Welcome and quick examples\",\n    \"/help - Detailed usage\",\n    \"/auto_on - Enable auto-translate for this chat\",\n    \"/auto_off - Disable auto-translate for this chat\",\n    \"/toen - Force translating into English\",\n    \"/toid - Force translating into Indonesian\",\n    \"/mode - Show current settings\",\n    \"Key rules:\",\n    \"1) Only translate non-command text (messages starting with / are commands and must not be translated).\",\n    \"2) In group chats, respond only when mentioned by \" + name + \" or when the message is a reply to a bot message.\",\n    \"3) Reply should be the translated text only (no extra commentary).\"\n  ].join(\"\\n\");\n}\n"
+                },
+                "config.js": {
+                  "type": "file",
+                  "content": "export const cfg = {\n  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,\n\n  // Mongo\n  MONGODB_URI: process.env.MONGODB_URI || \"\",\n\n  // CookMyBots AI Gateway\n  // Base URL like: https://api.cookmybots.com/api/ai\n  COOKMYBOTS_AI_ENDPOINT: process.env.COOKMYBOTS_AI_ENDPOINT || \"\",\n  COOKMYBOTS_AI_KEY: process.env.COOKMYBOTS_AI_KEY || \"\",\n\n  // Controls (safe fallbacks)\n  LOG_LEVEL: (process.env.LOG_LEVEL || \"info\").toLowerCase(),\n  AI_TIMEOUT_MS: Number(process.env.AI_TIMEOUT_MS || 600000),\n  AI_MAX_RETRIES: Number(process.env.AI_MAX_RETRIES || 2),\n  CONCURRENCY: Number(process.env.CONCURRENCY || 20)\n};\n"
+                },
+                "db.js": {
+                  "type": "file",
+                  "content": "import { MongoClient } from \"mongodb\";\nimport { log } from \"./log.js\";\nimport { safeErr } from \"./safeErr.js\";\n\nlet _client = null;\nlet _db = null;\nlet _ensured = false;\n\nexport async function getDb(mongoUri) {\n  if (!mongoUri) return null;\n  if (_db) return _db;\n\n  try {\n    _client = new MongoClient(mongoUri, { maxPoolSize: 5 });\n    await _client.connect();\n    _db = _client.db();\n\n    log.info(\"[db] connected\", { mongoConfigured: true });\n\n    if (!_ensured) {\n      _ensured = true;\n      await ensureIndexes(_db);\n    }\n\n    return _db;\n  } catch (e) {\n    log.error(\"[db] connect failed\", { err: safeErr(e) });\n    _client = null;\n    _db = null;\n    return null;\n  }\n}\n\nasync function ensureIndexes(db) {\n  try {\n    await db.collection(\"chat_settings\").createIndex({ chatId: 1 }, { unique: true });\n  } catch (e) {\n    log.warn(\"[db] ensureIndexes failed\", { err: safeErr(e) });\n  }\n}\n"
+                },
+                "log.js": {
+                  "type": "file",
+                  "content": "import { cfg } from \"./config.js\";\n\nconst levelOrder = {\n  debug: 10,\n  info: 20,\n  warn: 30,\n  error: 40\n};\n\nfunction shouldLog(level) {\n  const cur = levelOrder[cfg.LOG_LEVEL] ?? levelOrder.info;\n  return (levelOrder[level] ?? 999) >= cur;\n}\n\nexport const log = {\n  debug: (msg, meta = undefined) => {\n    if (!shouldLog(\"debug\")) return;\n    console.log(\"[debug]\", msg, meta || \"\");\n  },\n  info: (msg, meta = undefined) => {\n    if (!shouldLog(\"info\")) return;\n    console.log(\"[info]\", msg, meta || \"\");\n  },\n  warn: (msg, meta = undefined) => {\n    if (!shouldLog(\"warn\")) return;\n    console.warn(\"[warn]\", msg, meta || \"\");\n  },\n  error: (msg, meta = undefined) => {\n    if (!shouldLog(\"error\")) return;\n    console.error(\"[error]\", msg, meta || \"\");\n  }\n};\n"
+                },
+                "memory.js": {
+                  "type": "file",
+                  "content": "\n      import { getDb } from \"./db.js\";\n\nconst COL = \"memory_messages\";\n\nexport async function addTurn({ mongoUri, platform, userId, chatId, role, text }) {\n  const db = await getDb(mongoUri);\n  const doc = {\n    platform,\n    userId: String(userId),\n    chatId: chatId ? String(chatId) : \"\",\n    role,\n    text: String(text || \"\").slice(0, 4000),\n    ts: new Date(),\n  };\n\n  if (!db) return; // allow bot to run without DB\n  await db.collection(COL).insertOne(doc);\n}\n\nexport async function getRecentTurns({ mongoUri, platform, userId, chatId, limit = 14 }) {\n  const db = await getDb(mongoUri);\n  if (!db) return [];\n\n  const q = {\n    platform,\n    userId: String(userId),\n  };\n  if (chatId) q.chatId = String(chatId);\n\n  const rows = await db\n    .collection(COL)\n    .find(q)\n    .sort({ ts: -1 })\n    .limit(limit)\n    .toArray();\n\n  // return chronological\n  return rows.reverse().map((r) => ({ role: r.role, text: r.text }));\n}\n\nexport async function clearUserMemory({ mongoUri, platform, userId, chatId }) {\n  const db = await getDb(mongoUri);\n  if (!db) return;\n\n  const q = { platform, userId: String(userId) };\n  if (chatId) q.chatId = String(chatId);\n\n  await db.collection(COL).deleteMany(q);\n}"
+                },
+                "safeErr.js": {
+                  "type": "file",
+                  "content": "export function safeErr(err) {\n  return (\n    err?.response?.data?.error?.message ||\n    err?.response?.data?.message ||\n    err?.message ||\n    String(err)\n  );\n}\n"
+                }
+              }
+            },
+            "middleware": {
+              "type": "dir",
+              "children": {
+                "rateLimit.js": {
+                  "type": "file",
+                  "content": "const buckets = new Map();\n\nfunction nowMs() {\n  return Date.now();\n}\n\nexport function rateLimitMiddleware({ limit = 5, windowMs = 10_000 } = {}) {\n  return async (ctx, next) => {\n    const userId = ctx.from?.id ? String(ctx.from.id) : \"\";\n    if (!userId) return next();\n\n    const now = nowMs();\n    const b = buckets.get(userId) || { start: now, count: 0, warnedAt: 0 };\n\n    if (now - b.start > windowMs) {\n      b.start = now;\n      b.count = 0;\n    }\n\n    b.count += 1;\n    buckets.set(userId, b);\n\n    if (b.count > limit) {\n      if (now - (b.warnedAt || 0) > windowMs) {\n        b.warnedAt = now;\n        buckets.set(userId, b);\n        try {\n          await ctx.reply(\"You're sending too fast. Please wait a few seconds.\");\n        } catch {}\n      }\n      return;\n    }\n\n    return next();\n  };\n}\n"
+                }
+              }
+            },
+            "services": {
+              "type": "dir",
+              "children": {
+                "chatSettings.js": {
+                  "type": "file",
+                  "content": "const log = {\n  info:  (...a) => console.log(...a),\n  warn:  (...a) => console.warn(...a),\n  error: (...a) => console.error(...a),\n};\n\nimport { getDb } from \"../lib/db.js\";\nimport { cfg } from \"../lib/config.js\";\n\nimport { safeErr } from \"../lib/safeErr.js\";\n\nconst COL = \"chat_settings\";\n\nexport function defaultChatSettings(chatId) {\n  return {\n    chatId: String(chatId),\n    autoTranslate: true,\n    directionMode: \"auto\" // \"auto\" | \"toen\" | \"toid\"\n  };\n}\n\nexport async function getChatSettings(chatId) {\n  const id = String(chatId);\n  const db = await getDb(cfg.MONGODB_URI);\n  if (!db) return { settings: defaultChatSettings(id), persisted: false };\n\n  try {\n    const row = await db.collection(COL).findOne({ chatId: id });\n    if (!row) {\n      const def = defaultChatSettings(id);\n      await db.collection(COL).updateOne(\n        { chatId: id },\n        {\n          $setOnInsert: { createdAt: new Date() },\n          $set: { ...def, updatedAt: new Date() }\n        },\n        { upsert: true }\n      );\n      return { settings: def, persisted: true };\n    }\n\n    return {\n      settings: {\n        chatId: id,\n        autoTranslate: row.autoTranslate !== false,\n        directionMode: row.directionMode === \"toen\" || row.directionMode === \"toid\" ? row.directionMode : \"auto\"\n      },\n      persisted: true\n    };\n  } catch (e) {\n    log.error(\"[db] read failed\", { col: COL, op: \"findOne\", err: safeErr(e) });\n    return { settings: defaultChatSettings(id), persisted: false };\n  }\n}\n\nexport async function updateChatSettings(chatId, patch) {\n  const id = String(chatId);\n  const db = await getDb(cfg.MONGODB_URI);\n  if (!db) {\n    return { ok: false, error: \"DB_NOT_CONFIGURED\" };\n  }\n\n  const mutable = { ...patch };\n  delete mutable._id;\n  delete mutable.createdAt;\n\n  try {\n    await db.collection(COL).updateOne(\n      { chatId: id },\n      {\n        $setOnInsert: { },\n        $set: { ...mutable, chatId: id, updatedAt: new Date() }\n      },\n      { upsert: true }\n    );\n    return { ok: true };\n  } catch (e) {\n    log.error(\"[db] write failed\", { col: COL, op: \"updateOne\", err: safeErr(e) });\n    return { ok: false, error: safeErr(e) };\n  }\n}\n"
+                },
+                "translate.js": {
+                  "type": "file",
+                  "content": "import { aiChat } from \"../lib/ai.js\";\n\nfunction clampText(s) {\n  const t = String(s || \"\");\n  if (t.length <= 3500) return t;\n  return t.slice(0, 3500);\n}\n\nfunction directionLabel(targetLang) {\n  return targetLang === \"en\" ? \"ID → EN\" : \"EN → ID\";\n}\n\nexport async function translateText({ botProfile, text, directionMode }) {\n  const t = clampText(text);\n\n  const targetHint =\n    directionMode === \"toen\" ? \"en\" :\n    directionMode === \"toid\" ? \"id\" :\n    \"auto\";\n\n  const system =\n    String(botProfile || \"\") +\n    \"\\n\\n\" +\n    \"Task: Translate chat messages between Indonesian (id) and English (en).\" +\n    \"\\n\" +\n    \"Rules:\" +\n    \"\\n\" +\n    \"1) Detect whether the input text is Indonesian or English.\" +\n    \"\\n\" +\n    \"2) If target is auto: translate to the opposite language. If detection is uncertain, translate into English.\" +\n    \"\\n\" +\n    \"3) If target is forced (en or id), translate into that target language.\" +\n    \"\\n\" +\n    \"4) Return ONLY the translated text. No labels, no quotes, no explanations.\";\n\n  const user =\n    \"Target: \" + targetHint + \"\\n\" +\n    \"Text:\\n\" + t;\n\n  const res = await aiChat({\n    messages: [\n      { role: \"system\", content: system },\n      { role: \"user\", content: user }\n    ],\n    meta: { platform: \"telegram\", purpose: \"translate\", target: targetHint }\n  });\n\n  if (!res.ok) {\n    return { ok: false, error: res.error || \"AI_ERROR\" };\n  }\n\n  const content = res?.json?.output?.content;\n  const out = String(content || \"\").trim();\n  if (!out) return { ok: false, error: \"EMPTY_TRANSLATION\" };\n\n  let label = \"\";\n  if (directionMode === \"toen\") label = directionLabel(\"en\");\n  else if (directionMode === \"toid\") label = directionLabel(\"id\");\n  else {\n    // For auto mode, infer label heuristically to match the prompt's intent.\n    // If output contains many Indonesian stop words, assume EN->ID; else ID->EN.\n    const lower = out.toLowerCase();\n    const idHints = [\" yang \", \" tidak \", \" saya \", \" kamu \", \" ini \", \" itu \", \" dan \", \" di \", \" ke \"];\n    const idScore = idHints.reduce((n, w) => n + (lower.includes(w) ? 1 : 0), 0);\n    label = idScore >= 2 ? directionLabel(\"id\") : directionLabel(\"en\");\n  }\n\n  return { ok: true, translatedText: out, label };\n}\n"
+                }
+              }
+            }
+          }
+        }
+      },
+      "commands": [
+        {
+          "command": "/auto_off",
+          "description": "Disables auto-translate for the current chat.",
+          "usage": "/auto_off",
+          "examples": [
+            "User: /auto_off → Bot: Auto-translate is OFF for this chat."
+          ],
+          "example": "User: /auto_off → Bot: Auto-translate is OFF for this chat.",
+          "notes": "Useful in noisy group chats."
+        },
+        {
+          "command": "/auto_on",
+          "description": "Enables auto-translate for the current chat.",
+          "usage": "/auto_on",
+          "examples": [
+            "User: /auto_on → Bot: Auto-translate is ON for this chat."
+          ],
+          "example": "User: /auto_on → Bot: Auto-translate is ON for this chat.",
+          "notes": "Requires MONGODB_URI to persist across restarts; otherwise it may be temporary."
+        },
+        {
+          "command": "/help",
+          "description": "Shows detailed usage, commands list, and limitations.",
+          "usage": "/help",
+          "examples": [
+            "User: /help → Bot: shows all commands and group behavior rules"
+          ],
+          "example": "User: /help → Bot: shows all commands and group behavior rules",
+          "notes": "In groups, the bot responds only when mentioned or replied-to."
+        },
+        {
+          "command": "/mode",
+          "description": "Shows current chat settings (auto on/off, direction mode).",
+          "usage": "/mode",
+          "examples": [
+            "User: /mode → Bot: Auto-translate: ON, Direction: auto"
+          ],
+          "example": "User: /mode → Bot: Auto-translate: ON, Direction: auto",
+          "notes": "If MONGODB_URI is missing, the bot will say settings are not persisted."
+        },
+        {
+          "command": "/start",
+          "description": "Shows a welcome message, explains auto-translation, and gives quick examples.",
+          "usage": "/start",
+          "examples": [
+            "User: /start → Bot: explains how to send text and get translations"
+          ],
+          "example": "User: /start → Bot: explains how to send text and get translations",
+          "notes": "Auto-translate defaults to ON for new chats."
+        },
+        {
+          "command": "/toen",
+          "description": "Forces translation target to English for the current chat.",
+          "usage": "/toen",
+          "examples": [
+            "User: /toen → Bot: Direction set: always translate into English."
+          ],
+          "example": "User: /toen → Bot: Direction set: always translate into English.",
+          "notes": "Overrides language detection until changed."
+        },
+        {
+          "command": "/toid",
+          "description": "Forces translation target to Indonesian for the current chat.",
+          "usage": "/toid",
+          "examples": [
+            "User: /toid → Bot: Direction set: always translate into Indonesian."
+          ],
+          "example": "User: /toid → Bot: Direction set: always translate into Indonesian.",
+          "notes": "Overrides language detection until changed."
+        }
+      ],
+      "envVarDocs": [
+        {
+          "key": "TELEGRAM_BOT_TOKEN",
+          "title": "Telegram Bot Token",
+          "description": "Token used to connect the bot to Telegram via grammY.",
+          "usage": "Read at startup; if missing the service exits with a clear message.",
+          "howToGet": "Create a bot with @BotFather on Telegram and copy the token.",
+          "example": "123456789:AA... (format example)",
+          "isSecret": true,
+          "required": true
+        },
+        {
+          "key": "COOKMYBOTS_AI_ENDPOINT",
+          "title": "CookMyBots AI Gateway Base URL",
+          "description": "Base URL for the CookMyBots AI Gateway. The bot calls /chat by appending to this base URL.",
+          "usage": "Used by src/lib/ai.js for translation requests.",
+          "howToGet": "Provided by CookMyBots (AI Gateway).",
+          "example": "https://api.cookmybots.com/api/ai",
+          "isSecret": false,
+          "required": true
+        },
+        {
+          "key": "COOKMYBOTS_AI_KEY",
+          "title": "CookMyBots AI Gateway Key",
+          "description": "Authorization key for the CookMyBots AI Gateway.",
+          "usage": "Sent as Authorization: Bearer <key> on every AI request.",
+          "howToGet": "Provided by CookMyBots (AI Gateway).",
+          "example": "cmb_ai_... (format example)",
+          "isSecret": true,
+          "required": true
+        },
+        {
+          "key": "MONGODB_URI",
+          "title": "MongoDB Connection String",
+          "description": "MongoDB connection string used to persist per-chat settings (autoTranslate, directionMode). If missing, the bot still runs but settings reset on restart.",
+          "usage": "Used by src/lib/db.js and src/services/chatSettings.js.",
+          "howToGet": "Create a MongoDB database (Atlas or managed MongoDB) and copy the connection string.",
+          "example": "mongodb+srv://user:pass@cluster/dbname",
+          "isSecret": true,
+          "required": false
+        },
+        {
+          "key": "LOG_LEVEL",
+          "title": "Log Level",
+          "description": "Controls log verbosity. Supported: debug, info, warn, error.",
+          "usage": "Used by src/lib/log.js to filter logs.",
+          "howToGet": "Set manually.",
+          "example": "info",
+          "isSecret": false,
+          "required": false
+        },
+        {
+          "key": "AI_TIMEOUT_MS",
+          "title": "AI Timeout (ms)",
+          "description": "Timeout for AI Gateway calls in milliseconds.",
+          "usage": "Used by src/lib/ai.js.",
+          "howToGet": "Set manually if needed.",
+          "example": "600000",
+          "isSecret": false,
+          "required": false
+        }
+      ],
+      "commandDocs": [
+        {
+          "command": "/start",
+          "description": "Shows a welcome message, explains auto-translation, and gives quick examples.",
+          "usage": "/start",
+          "examples": [
+            "User: /start → Bot: explains how to send text and get translations"
+          ],
+          "notes": "Auto-translate defaults to ON for new chats."
+        },
+        {
+          "command": "/help",
+          "description": "Shows detailed usage, commands list, and limitations.",
+          "usage": "/help",
+          "examples": [
+            "User: /help → Bot: shows all commands and group behavior rules"
+          ],
+          "notes": "In groups, the bot responds only when mentioned or replied-to."
+        },
+        {
+          "command": "/auto_on",
+          "description": "Enables auto-translate for the current chat.",
+          "usage": "/auto_on",
+          "examples": [
+            "User: /auto_on → Bot: Auto-translate is ON for this chat."
+          ],
+          "notes": "Requires MONGODB_URI to persist across restarts; otherwise it may be temporary."
+        },
+        {
+          "command": "/auto_off",
+          "description": "Disables auto-translate for the current chat.",
+          "usage": "/auto_off",
+          "examples": [
+            "User: /auto_off → Bot: Auto-translate is OFF for this chat."
+          ],
+          "notes": "Useful in noisy group chats."
+        },
+        {
+          "command": "/toen",
+          "description": "Forces translation target to English for the current chat.",
+          "usage": "/toen",
+          "examples": [
+            "User: /toen → Bot: Direction set: always translate into English."
+          ],
+          "notes": "Overrides language detection until changed."
+        },
+        {
+          "command": "/toid",
+          "description": "Forces translation target to Indonesian for the current chat.",
+          "usage": "/toid",
+          "examples": [
+            "User: /toid → Bot: Direction set: always translate into Indonesian."
+          ],
+          "notes": "Overrides language detection until changed."
+        },
+        {
+          "command": "/mode",
+          "description": "Shows current chat settings (auto on/off, direction mode).",
+          "usage": "/mode",
+          "examples": [
+            "User: /mode → Bot: Auto-translate: ON, Direction: auto"
+          ],
+          "notes": "If MONGODB_URI is missing, the bot will say settings are not persisted."
+        }
+      ],
+      "aiMessages": [
+        {
+          "role": "user",
+          "content": "build a simple translator bot for indonesia and english ,whenever the bot got messages it will automatically translate in reverse of the input"
+        },
+        {
+          "role": "assistant",
+          "content": "Created a new Telegram-only grammY project for auto translating between Indonesian and English. Implemented /start, /help, /auto_on, /auto_off, /toen, /toid, /mode, group mention/reply rules, per-user soft rate limiting, MongoDB-backed per-chat settings with safe upserts, and CookMyBots AI Gateway translation via src/lib/ai.js + src/services/translate.js. Added DOCS.md and updated .env.sample.\n\nFiles touched (24): .env.sample, DOCS.md, README.md, package.json, project.json, src/bot.js…\nValidation: ✅ project passes syntax/basic checks after this edit."
+        }
+      ],
+      "createdBy": "",
+      "source": "",
+      "description": "",
+      "planMarkdown": "Bot: Indonesia–English Auto-Translate Telegram Bot (grammY, Node.js ESM)\n\nSummary:\nA production-ready Telegram bot that automatically translates every incoming user message between Indonesian and English, reversing the translation direction based on detected input language. The bot works in private chats and can optionally support group chats with configurable behavior.\n\nThe plan focuses on a single-process Node.js service using grammY, MongoDB for persistence, and a modular architecture that supports rate limiting, abuse prevention, observability, and safe fallbacks when language detection is uncertain. The bot is designed to be simple for users (send text, get translation) while still being reliable and maintainable in production.\n\nProduct goals:\nPrimary goal: Provide instant bidirectional translation between Indonesian and English. If a user sends Indonesian, the bot replies in English; if a user sends English, the bot replies in Indonesian.\n\nUser experience goals:\n1) Zero-configuration default: Users can start translating immediately after /start.\n2) Predictable replies: The bot responds to every supported message with a single translated response.\n3) Fast and reliable: Low latency, with sensible fallbacks if detection or translation fails.\n4) Clear behavior in edge cases: If language detection is ambiguous or text contains mixed languages, the bot explains what it did and offers a way to override.\n\nScope decisions:\n1) Translate text content. Optionally include captions on photos/documents if present.\n2) Do not attempt full OCR or speech-to-text as a baseline requirement.\n3) Default translation direction is automatic, but users can lock direction (ID->EN or EN->ID) per chat.\n\nSuccess criteria:\n1) High accuracy for typical conversational text.\n2) Minimal operational burden: stable single service, straightforward monitoring, and controlled costs.\n3) Safe handling of spam and large messages while staying within Telegram limits.\n\nHigh-level architecture:\nSingle-process Node.js service (ESM) using grammY. The bot receives updates via either webhook or long polling. For production readiness, webhook is preferred if the environment supports inbound HTTP, otherwise long polling remains acceptable with careful error handling.\n\nCore modules (separation of concerns):\n1) Update handling layer: grammY bot instance, middleware chain, command router, message handlers.\n2) Session and settings module: per-chat settings (auto vs locked direction, group behavior, verbosity), with MongoDB persistence.\n3) Language detection module: lightweight detection tuned for Indonesian vs English, using a deterministic heuristic first and an external detector second (optional) to reduce cost/latency. Must return confidence score and a reason.\n4) Translation provider module: abstraction over a translation API/service with retries, timeouts, circuit breaker behavior, and usage accounting.\n5) Policy and safety module: rate limiting per user/chat, message size limits, content filtering for unsupported inputs, and group privacy controls.\n6) Observability module: structured logging, metrics counters (translations, errors, latency), and correlation IDs per update.\n\nRequest lifecycle:\n1) Receive update.\n2) Identify chat/user, load settings and minimal user profile.\n3) If command: execute command.\n4) If text/caption: run policy checks, detect language, decide direction, translate, respond.\n5) Persist audit record (optional) and update usage counters.\n\nError handling principles:\n1) Fail fast for unsupported message types with a short guidance reply.\n2) For transient translation failures: retry once with backoff; if still failing, respond with a human-readable error.\n3) For language detection ambiguity: ask the user to choose direction or provide a one-tap setting command.\n\nGroup chat behavior (recommended defaults):\n1) Only translate when the bot is directly replied to, or when a message starts with a trigger (for example, “tr:” or “translate ”). This prevents spam in groups.\n2) Allow admins to enable always-on translation per group via a setting command.\n\nDeployment shape:\n1) One Node.js server process.\n2) MongoDB for persistence.\n3) Optional object storage or simple filesystem storage only if you later add features like saving translation history exports or logs; not required for baseline translator.\n\nData model:\nMongoDB collections (minimal, production-friendly):\n\n1) chats\nFields:\n1) chatId (number/string)\n2) type (private/group/supergroup)\n3) createdAt, updatedAt\n4) settings:\n   1) mode: auto | locked\n   2) lockedDirection: idtoen | entoid (only if mode=locked)\n   3) groupTrigger: replyonly | prefixonly | always\n   4) showDetectedLanguage: boolean\n   5) showConfidenceWarnings: boolean\n   6) maxCharsPerMessage: number\n\n2) users\nFields:\n1) userId\n2) firstSeenAt, lastSeenAt\n3) preferredMode (optional override for private chats)\n4) usage:\n   1) dayKey (YYYY-MM-DD)\n   2) translatedCharsToday\n   3) requestsToday\n\n3) translationlogs (optional, can be disabled for privacy)\nPurpose: debugging and quality improvements, not required for core functionality.\nFields:\n1) timestamp\n2) chatId, userId\n3) inputLength\n4) detectedSourceLang (id/en/unknown)\n5) targetLang\n6) confidence\n7) providerLatencyMs\n8) status (success/error)\n9) errorCode (if any)\n\nPrivacy-first approach:\n1) Do not store raw message text by default.\n2) If logs are enabled, store only minimal metadata unless the user/admin explicitly opts in to diagnostics.\n3) Implement retention: auto-delete logs older than N days.\n\nIndexes:\n1) chats.chatId unique\n2) users.userId unique\n3) translationlogs.timestamp TTL index (if using retention)\n\nIn-memory maps:\n1) Short-lived caches for chat settings and user usage counters to reduce DB reads, with periodic sync to MongoDB.\n2) In-flight request map per chat/user to avoid overlapping translations when users spam messages quickly (optional).\n\nKey flows:\n1) Start and onboarding (/start)\n1) User sends /start.\n2) Bot replies with a brief description: send any text in Indonesian or English to translate.\n3) Bot shows current mode (auto) and quick commands to lock direction.\n4) Bot initializes user and chat records in MongoDB.\n\n2) Auto translation flow (private chat)\n1) User sends a text message.\n2) Policy checks: length, rate limits.\n3) Detect language: classify as Indonesian, English, or unknown with confidence.\n4) Decide target language:\n   1) If detected Indonesian: target English.\n   2) If detected English: target Indonesian.\n   3) If unknown or low confidence: either ask user to choose, or default to the last successful direction in this chat with a warning.\n5) Translate via provider module with timeout and retry.\n6) Reply with translated text.\n7) Optionally append a small note when detection was uncertain (configurable).\n\n3) Locked direction flow\n1) User runs /mode locked or /id2en or /en2id.\n2) Bot updates chat settings.\n3) Subsequent messages translate according to locked direction without detection.\n4) /mode auto returns to detection-based behavior.\n\n4) Group chat flow\nDefault behavior: translate only when explicitly invoked.\n1) If groupTrigger=replyonly:\n   1) Bot checks if the message is a reply to a bot message or mentions the bot.\n   2) If yes, translate; if no, ignore.\n2) If groupTrigger=prefixonly:\n   1) Bot checks for a prefix like “tr:” and strips it before translating.\n3) If groupTrigger=always:\n   1) Bot translates all messages (not recommended by default).\nAdmin commands configure this per group.\n\n5) Rate limiting and abuse prevention\n1) Per-user: cap requests per minute and characters per minute.\n2) Per-chat: cap overall throughput in groups.\n3) On limit hit: respond with a short message indicating cooldown.\n4) Track usage in MongoDB with daily counters.\n\n6) Edge cases\n1) Very short messages (for example, “ok”, “ya”): treat as ambiguous. Use chat history direction heuristic or ask user for direction.\n2) Mixed-language messages: choose dominant language by heuristic, or offer a quick override command.\n3) Non-text messages: if caption exists, translate caption; otherwise reply with guidance.\n4) Provider failure: return a friendly error, encourage retry, and do not spam retries.\n\n7) Observability and operations flow\n1) Each update gets a correlation ID.\n2) Log key events: detection result, chosen direction, provider latency, error codes.\n3) Periodic health checks: database connectivity, provider reachability.\n4) Alerting is out of scope for this plan, but logs and metrics must be sufficient to add it later without architectural changes.\n\nTech stack:\nRuntime and language:\n1) Node.js (ESM) single process.\n2) grammY for Telegram bot API integration.\n\nPersistence:\n1) MongoDB for chat/user settings, usage counters, and optional translation logs.\n2) Small in-memory caches/maps for hot settings and rate-limiting windows, with MongoDB as source of truth.\n\nExternal services:\n1) Translation API/provider accessed over HTTPS, wrapped behind an internal provider abstraction to allow swapping providers without touching bot logic.\n2) Optional lightweight language detection library locally; otherwise rely on provider detection if supported.\n\nStorage:\n1) No file storage required for baseline.\n2) If later needed (exports, diagnostics attachments), use object storage or simple filesystem storage.\n\nDeployment:\n1) A Node.js server in the cloud.\n2) Telegram token loaded from environment variable TELEGRAMBOTTOKEN.\n3) Configuration via environment variables (MongoDB connection string, provider keys, rate limit thresholds, logging level).\n\nOperational best practices:\n1) Graceful shutdown to finish in-flight translations and close MongoDB connections.\n2) Timeouts and retries for all outbound HTTP calls.\n3) Input validation and strict limits to prevent memory bloat and provider overuse.\n\nNon-functional requirements:\nReliability:\n1) Use timeouts for translation requests and limit concurrency.\n2) Implement a simple circuit breaker behavior: if provider failures spike, temporarily fail fast with a clear error to avoid cascading timeouts.\n3) Ensure idempotent handling where possible; avoid duplicate replies by tracking last processed update IDs in memory and/or MongoDB if webhook retries are frequent.\n\nPerformance:\n1) Keep detection lightweight; avoid calling the translation provider twice.\n2) Cache chat settings and user limits briefly in memory.\n3) Enforce message size limits and truncate safely with a note when needed.\n\nSecurity:\n1) Store secrets only in environment variables.\n2) Validate incoming updates (webhook secret path or similar technique) if using webhooks.\n3) Avoid logging message text by default.\n4) Enforce anti-spam limits and ignore obvious automation loops.\n\nPrivacy and compliance:\n1) Provide /privacy to explain what is stored.\n2) Offer /optoutlogs to disable optional diagnostics logging.\n3) Provide /delete to remove user data (user record and chat settings if private chat).\n\nMaintainability:\n1) Clear module boundaries: Telegram handling vs detection vs translation vs persistence.\n2) Provider abstraction for translation.\n3) Centralized configuration and consistent error taxonomy.\n\nTest strategy (high-level):\n1) Unit tests for detection and direction decision.\n2) Integration tests for translation provider wrapper with mocked HTTP.\n3) End-to-end tests using Telegram update fixtures to validate grammY middleware routing.\n\nBot commands:\n• /start — Introduces the bot and starts auto-translation in the current chat. (usage: /start) [core]\n• /help — Shows usage instructions, examples, and common troubleshooting. (usage: /help) [core]\n• /mode — Sets translation mode: auto (detect) or locked (fixed direction). (usage: /mode auto | /mode locked) [settings]\n• /id2en — Locks translation direction to Indonesian -> English for this chat. (usage: /id2en) [settings]\n• /en2id — Locks translation direction to English -> Indonesian for this chat. (usage: /en2id) [settings]\n• /auto — Shortcut to return to automatic language detection mode. (usage: /auto) [settings]\n• /settings — Displays current chat settings and how to change them. (usage: /settings) [settings]\n• /groupmode — Configures how the bot behaves in groups (admins only). (usage: /groupmode replyonly | /groupmode prefixonly | /groupmode always) [admin]\n• /privacy — Explains what data is stored and for how long. (usage: /privacy) [trust]\n• /delete — Deletes stored user data for the requesting user (and private chat settings). (usage: /delete) [trust]\n• /optoutlogs — Disables optional diagnostics logging for the current chat/user. (usage: /optoutlogs) [trust]\n• /status — Shows basic service status and current rate limit counters for the user (optional). (usage: /status) [ops]\n",
+      "planSections": {
+        "productGoals": "Primary goal: Provide instant bidirectional translation between Indonesian and English. If a user sends Indonesian, the bot replies in English; if a user sends English, the bot replies in Indonesian.\n\nUser experience goals:\n1) Zero-configuration default: Users can start translating immediately after /start.\n2) Predictable replies: The bot responds to every supported message with a single translated response.\n3) Fast and reliable: Low latency, with sensible fallbacks if detection or translation fails.\n4) Clear behavior in edge cases: If language detection is ambiguous or text contains mixed languages, the bot explains what it did and offers a way to override.\n\nScope decisions:\n1) Translate text content. Optionally include captions on photos/documents if present.\n2) Do not attempt full OCR or speech-to-text as a baseline requirement.\n3) Default translation direction is automatic, but users can lock direction (ID->EN or EN->ID) per chat.\n\nSuccess criteria:\n1) High accuracy for typical conversational text.\n2) Minimal operational burden: stable single service, straightforward monitoring, and controlled costs.\n3) Safe handling of spam and large messages while staying within Telegram limits.",
+        "highLevelArchitecture": "Single-process Node.js service (ESM) using grammY. The bot receives updates via either webhook or long polling. For production readiness, webhook is preferred if the environment supports inbound HTTP, otherwise long polling remains acceptable with careful error handling.\n\nCore modules (separation of concerns):\n1) Update handling layer: grammY bot instance, middleware chain, command router, message handlers.\n2) Session and settings module: per-chat settings (auto vs locked direction, group behavior, verbosity), with MongoDB persistence.\n3) Language detection module: lightweight detection tuned for Indonesian vs English, using a deterministic heuristic first and an external detector second (optional) to reduce cost/latency. Must return confidence score and a reason.\n4) Translation provider module: abstraction over a translation API/service with retries, timeouts, circuit breaker behavior, and usage accounting.\n5) Policy and safety module: rate limiting per user/chat, message size limits, content filtering for unsupported inputs, and group privacy controls.\n6) Observability module: structured logging, metrics counters (translations, errors, latency), and correlation IDs per update.\n\nRequest lifecycle:\n1) Receive update.\n2) Identify chat/user, load settings and minimal user profile.\n3) If command: execute command.\n4) If text/caption: run policy checks, detect language, decide direction, translate, respond.\n5) Persist audit record (optional) and update usage counters.\n\nError handling principles:\n1) Fail fast for unsupported message types with a short guidance reply.\n2) For transient translation failures: retry once with backoff; if still failing, respond with a human-readable error.\n3) For language detection ambiguity: ask the user to choose direction or provide a one-tap setting command.\n\nGroup chat behavior (recommended defaults):\n1) Only translate when the bot is directly replied to, or when a message starts with a trigger (for example, “tr:” or “translate ”). This prevents spam in groups.\n2) Allow admins to enable always-on translation per group via a setting command.\n\nDeployment shape:\n1) One Node.js server process.\n2) MongoDB for persistence.\n3) Optional object storage or simple filesystem storage only if you later add features like saving translation history exports or logs; not required for baseline translator.",
+        "dataModel": "MongoDB collections (minimal, production-friendly):\n\n1) chats\nFields:\n1) chatId (number/string)\n2) type (private/group/supergroup)\n3) createdAt, updatedAt\n4) settings:\n   1) mode: auto | locked\n   2) lockedDirection: idtoen | entoid (only if mode=locked)\n   3) groupTrigger: replyonly | prefixonly | always\n   4) showDetectedLanguage: boolean\n   5) showConfidenceWarnings: boolean\n   6) maxCharsPerMessage: number\n\n2) users\nFields:\n1) userId\n2) firstSeenAt, lastSeenAt\n3) preferredMode (optional override for private chats)\n4) usage:\n   1) dayKey (YYYY-MM-DD)\n   2) translatedCharsToday\n   3) requestsToday\n\n3) translationlogs (optional, can be disabled for privacy)\nPurpose: debugging and quality improvements, not required for core functionality.\nFields:\n1) timestamp\n2) chatId, userId\n3) inputLength\n4) detectedSourceLang (id/en/unknown)\n5) targetLang\n6) confidence\n7) providerLatencyMs\n8) status (success/error)\n9) errorCode (if any)\n\nPrivacy-first approach:\n1) Do not store raw message text by default.\n2) If logs are enabled, store only minimal metadata unless the user/admin explicitly opts in to diagnostics.\n3) Implement retention: auto-delete logs older than N days.\n\nIndexes:\n1) chats.chatId unique\n2) users.userId unique\n3) translationlogs.timestamp TTL index (if using retention)\n\nIn-memory maps:\n1) Short-lived caches for chat settings and user usage counters to reduce DB reads, with periodic sync to MongoDB.\n2) In-flight request map per chat/user to avoid overlapping translations when users spam messages quickly (optional).",
+        "keyFlows": "1) Start and onboarding (/start)\n1) User sends /start.\n2) Bot replies with a brief description: send any text in Indonesian or English to translate.\n3) Bot shows current mode (auto) and quick commands to lock direction.\n4) Bot initializes user and chat records in MongoDB.\n\n2) Auto translation flow (private chat)\n1) User sends a text message.\n2) Policy checks: length, rate limits.\n3) Detect language: classify as Indonesian, English, or unknown with confidence.\n4) Decide target language:\n   1) If detected Indonesian: target English.\n   2) If detected English: target Indonesian.\n   3) If unknown or low confidence: either ask user to choose, or default to the last successful direction in this chat with a warning.\n5) Translate via provider module with timeout and retry.\n6) Reply with translated text.\n7) Optionally append a small note when detection was uncertain (configurable).\n\n3) Locked direction flow\n1) User runs /mode locked or /id2en or /en2id.\n2) Bot updates chat settings.\n3) Subsequent messages translate according to locked direction without detection.\n4) /mode auto returns to detection-based behavior.\n\n4) Group chat flow\nDefault behavior: translate only when explicitly invoked.\n1) If groupTrigger=replyonly:\n   1) Bot checks if the message is a reply to a bot message or mentions the bot.\n   2) If yes, translate; if no, ignore.\n2) If groupTrigger=prefixonly:\n   1) Bot checks for a prefix like “tr:” and strips it before translating.\n3) If groupTrigger=always:\n   1) Bot translates all messages (not recommended by default).\nAdmin commands configure this per group.\n\n5) Rate limiting and abuse prevention\n1) Per-user: cap requests per minute and characters per minute.\n2) Per-chat: cap overall throughput in groups.\n3) On limit hit: respond with a short message indicating cooldown.\n4) Track usage in MongoDB with daily counters.\n\n6) Edge cases\n1) Very short messages (for example, “ok”, “ya”): treat as ambiguous. Use chat history direction heuristic or ask user for direction.\n2) Mixed-language messages: choose dominant language by heuristic, or offer a quick override command.\n3) Non-text messages: if caption exists, translate caption; otherwise reply with guidance.\n4) Provider failure: return a friendly error, encourage retry, and do not spam retries.\n\n7) Observability and operations flow\n1) Each update gets a correlation ID.\n2) Log key events: detection result, chosen direction, provider latency, error codes.\n3) Periodic health checks: database connectivity, provider reachability.\n4) Alerting is out of scope for this plan, but logs and metrics must be sufficient to add it later without architectural changes.",
+        "techStack": "Runtime and language:\n1) Node.js (ESM) single process.\n2) grammY for Telegram bot API integration.\n\nPersistence:\n1) MongoDB for chat/user settings, usage counters, and optional translation logs.\n2) Small in-memory caches/maps for hot settings and rate-limiting windows, with MongoDB as source of truth.\n\nExternal services:\n1) Translation API/provider accessed over HTTPS, wrapped behind an internal provider abstraction to allow swapping providers without touching bot logic.\n2) Optional lightweight language detection library locally; otherwise rely on provider detection if supported.\n\nStorage:\n1) No file storage required for baseline.\n2) If later needed (exports, diagnostics attachments), use object storage or simple filesystem storage.\n\nDeployment:\n1) A Node.js server in the cloud.\n2) Telegram token loaded from environment variable TELEGRAMBOTTOKEN.\n3) Configuration via environment variables (MongoDB connection string, provider keys, rate limit thresholds, logging level).\n\nOperational best practices:\n1) Graceful shutdown to finish in-flight translations and close MongoDB connections.\n2) Timeouts and retries for all outbound HTTP calls.\n3) Input validation and strict limits to prevent memory bloat and provider overuse.",
+        "nonFunctional": "Reliability:\n1) Use timeouts for translation requests and limit concurrency.\n2) Implement a simple circuit breaker behavior: if provider failures spike, temporarily fail fast with a clear error to avoid cascading timeouts.\n3) Ensure idempotent handling where possible; avoid duplicate replies by tracking last processed update IDs in memory and/or MongoDB if webhook retries are frequent.\n\nPerformance:\n1) Keep detection lightweight; avoid calling the translation provider twice.\n2) Cache chat settings and user limits briefly in memory.\n3) Enforce message size limits and truncate safely with a note when needed.\n\nSecurity:\n1) Store secrets only in environment variables.\n2) Validate incoming updates (webhook secret path or similar technique) if using webhooks.\n3) Avoid logging message text by default.\n4) Enforce anti-spam limits and ignore obvious automation loops.\n\nPrivacy and compliance:\n1) Provide /privacy to explain what is stored.\n2) Offer /optoutlogs to disable optional diagnostics logging.\n3) Provide /delete to remove user data (user record and chat settings if private chat).\n\nMaintainability:\n1) Clear module boundaries: Telegram handling vs detection vs translation vs persistence.\n2) Provider abstraction for translation.\n3) Centralized configuration and consistent error taxonomy.\n\nTest strategy (high-level):\n1) Unit tests for detection and direction decision.\n2) Integration tests for translation provider wrapper with mocked HTTP.\n3) End-to-end tests using Telegram update fixtures to validate grammY middleware routing."
+      },
+      "balanceCentsRemaining": 10,
+      "billing": {
+        "ok": true,
+        "charged": 35,
+        "remaining": 10,
+        "chargedCents": 35,
+        "remainingCents": 10,
+        "currency": "USD",
+        "baseUsd": 0.17371799999999998,
+        "markupUsd": 0.17371799999999998,
+        "platformFeeUsd": 0,
+        "totalUsd": 0.34743599999999997
+      },
+      "title": "Indonesia–English Auto-Trans"
+    }
+  },
+  "envVarDocs": [
+    {
+      "key": "TELEGRAM_BOT_TOKEN",
+      "title": "Telegram Bot Token",
+      "description": "Token used to connect the bot to Telegram via grammY.",
+      "usage": "Read at startup; if missing the service exits with a clear message.",
+      "howToGet": "Create a bot with @BotFather on Telegram and copy the token.",
+      "example": "123456789:AA... (format example)",
+      "isSecret": true,
+      "required": true
+    },
+    {
+      "key": "COOKMYBOTS_AI_ENDPOINT",
+      "title": "CookMyBots AI Gateway Base URL",
+      "description": "Base URL for the CookMyBots AI Gateway. The bot calls /chat by appending to this base URL.",
+      "usage": "Used by src/lib/ai.js for translation requests.",
+      "howToGet": "Provided by CookMyBots (AI Gateway).",
+      "example": "https://api.cookmybots.com/api/ai",
+      "isSecret": false,
+      "required": true
+    },
+    {
+      "key": "COOKMYBOTS_AI_KEY",
+      "title": "CookMyBots AI Gateway Key",
+      "description": "Authorization key for the CookMyBots AI Gateway.",
+      "usage": "Sent as Authorization: Bearer <key> on every AI request.",
+      "howToGet": "Provided by CookMyBots (AI Gateway).",
+      "example": "cmb_ai_... (format example)",
+      "isSecret": true,
+      "required": true
+    },
+    {
+      "key": "MONGODB_URI",
+      "title": "MongoDB Connection String",
+      "description": "MongoDB connection string used to persist per-chat settings (autoTranslate, directionMode). If missing, the bot still runs but settings reset on restart.",
+      "usage": "Used by src/lib/db.js and src/services/chatSettings.js.",
+      "howToGet": "Create a MongoDB database (Atlas or managed MongoDB) and copy the connection string.",
+      "example": "mongodb+srv://user:pass@cluster/dbname",
+      "isSecret": true,
+      "required": false
+    },
+    {
+      "key": "LOG_LEVEL",
+      "title": "Log Level",
+      "description": "Controls log verbosity. Supported: debug, info, warn, error.",
+      "usage": "Used by src/lib/log.js to filter logs.",
+      "howToGet": "Set manually.",
+      "example": "info",
+      "isSecret": false,
+      "required": false
+    },
+    {
+      "key": "AI_TIMEOUT_MS",
+      "title": "AI Timeout (ms)",
+      "description": "Timeout for AI Gateway calls in milliseconds.",
+      "usage": "Used by src/lib/ai.js.",
+      "howToGet": "Set manually if needed.",
+      "example": "600000",
+      "isSecret": false,
+      "required": false
+    }
+  ],
+  "commandDocs": [
+    {
+      "command": "/start",
+      "description": "Shows a welcome message, explains auto-translation, and gives quick examples.",
+      "usage": "/start",
+      "examples": [
+        "User: /start → Bot: explains how to send text and get translations"
+      ],
+      "notes": "Auto-translate defaults to ON for new chats."
+    },
+    {
+      "command": "/help",
+      "description": "Shows detailed usage, commands list, and limitations.",
+      "usage": "/help",
+      "examples": [
+        "User: /help → Bot: shows all commands and group behavior rules"
+      ],
+      "notes": "In groups, the bot responds only when mentioned or replied-to."
+    },
+    {
+      "command": "/auto_on",
+      "description": "Enables auto-translate for the current chat.",
+      "usage": "/auto_on",
+      "examples": [
+        "User: /auto_on → Bot: Auto-translate is ON for this chat."
+      ],
+      "notes": "Requires MONGODB_URI to persist across restarts; otherwise it may be temporary."
+    },
+    {
+      "command": "/auto_off",
+      "description": "Disables auto-translate for the current chat.",
+      "usage": "/auto_off",
+      "examples": [
+        "User: /auto_off → Bot: Auto-translate is OFF for this chat."
+      ],
+      "notes": "Useful in noisy group chats."
+    },
+    {
+      "command": "/toen",
+      "description": "Forces translation target to English for the current chat.",
+      "usage": "/toen",
+      "examples": [
+        "User: /toen → Bot: Direction set: always translate into English."
+      ],
+      "notes": "Overrides language detection until changed."
+    },
+    {
+      "command": "/toid",
+      "description": "Forces translation target to Indonesian for the current chat.",
+      "usage": "/toid",
+      "examples": [
+        "User: /toid → Bot: Direction set: always translate into Indonesian."
+      ],
+      "notes": "Overrides language detection until changed."
+    },
+    {
+      "command": "/mode",
+      "description": "Shows current chat settings (auto on/off, direction mode).",
+      "usage": "/mode",
+      "examples": [
+        "User: /mode → Bot: Auto-translate: ON, Direction: auto"
+      ],
+      "notes": "If MONGODB_URI is missing, the bot will say settings are not persisted."
+    }
+  ],
+  "title": "Indonesia–English Auto-Trans"
+}

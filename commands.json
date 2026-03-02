@@ -1,0 +1,30 @@
+[
+  {
+    "name": "auto_off",
+    "file": "src/commands/auto_off.js"
+  },
+  {
+    "name": "auto_on",
+    "file": "src/commands/auto_on.js"
+  },
+  {
+    "name": "help",
+    "file": "src/commands/help.js"
+  },
+  {
+    "name": "mode",
+    "file": "src/commands/mode.js"
+  },
+  {
+    "name": "start",
+    "file": "src/commands/start.js"
+  },
+  {
+    "name": "toen",
+    "file": "src/commands/toen.js"
+  },
+  {
+    "name": "toid",
+    "file": "src/commands/toid.js"
+  }
+]
